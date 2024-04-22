@@ -31,9 +31,6 @@ public:
   // Number of Threads (OMP)
   int N_cores;
 
-  // Number of Processing Elements (MPI)
-  int N_PEs;
-
   // (Optional) Flatness coefficient
   double flatness;
 
@@ -66,6 +63,7 @@ public:
   ~WL();
   double compEnergy();
   void paramRead(const std::string& filepath);
+  void paramPrint();
 };
 
 WL::WL(/* args */) {
@@ -95,13 +93,13 @@ void WL::paramRead(const std::string& filepath) {
     params["min_MCS"]       = "4";
     params["log_F_end"]     = "2";
     params["N_cores"]       = "4";
-    params["N_PEs"]         = "4";
     params["N_rand"]        = "4";
     params["delX"]          = "3";
     params["check_histo"]   = "4";
     params["flatness"]      = "2";
     params["prob_single"]   = "3";
     params["explorable"]    = "6";
+    params["maxNorm"]       = "4";
     std::string line;
     /*
     *key = std::stof((*it)[3]);
@@ -117,7 +115,7 @@ void WL::paramRead(const std::string& filepath) {
 	  */
     while (std::getline(ifs, line)) {
       // Read Parameters by parsing with RegEx
-      params = readParam(line, params);
+      params = paramMap(line, params);
     }
     ifs.close();
     if (params["log_F_end"] != "2") log_F_end = std::stod(params["log_F_end"]);
@@ -127,7 +125,6 @@ void WL::paramRead(const std::string& filepath) {
     min_MCS = std::stoi(params["min_MCS"]);
     N_cores = std::stoi(params["N_cores"]);
     N_rand = std::stoi(params["N_rand"]);
-    N_PEs = std::stoi(params["N_PEs"]);
     if (params["prob_single"] != "3")
       prob_single = std::stod(params["prob_single"]);
 		param2vec(params["explorable"], explorable, 2);
@@ -137,6 +134,23 @@ void WL::paramRead(const std::string& filepath) {
 		exit(EXIT_FAILURE);
   }
   return;
+}
+
+void WL::paramPrint() {
+  std::cout << "- System Configuration -" << std::endl << std::endl;
+  #ifdef _OPENMP
+  std::cout << "WARNING: OpenMP enabled with " << N_cores << " cores." \
+            << std::endl;
+  #endif
+  std::cout << "min_MCS       : " << min_MCS << std::endl \
+            << "log_F_end     : " << log_F_end << std::endl \
+            << "delX          : " << delX << std::endl \
+            << "flatness      : " << flatness << std::endl \
+            << "check_histo   : " << check_histo << std::endl \
+            << "N_rand        : " << N_rand << std::endl \
+            << "prob_single   : " << prob_single << std::endl \
+            << "explorable    : " << explorable[0] << " - " << explorable[1] \
+                                  << std::endl;
 }
 
 #endif

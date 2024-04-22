@@ -86,7 +86,7 @@ void set_act(const int& actnum, double (**act) (double)) {
 }
 
 // TODO: Consider reference instead of value
-std::map<std::string, std::string> readParam(const std::string line,
+std::map<std::string, std::string> paramMap(const std::string line,
                std::map<std::string, std::string> params) {
   // RegEx group         0,   1,      2,     3,   4,    5,      6 =
   //              original, key, double, float, int, bool, string

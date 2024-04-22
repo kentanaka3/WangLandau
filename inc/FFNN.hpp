@@ -9,4 +9,5 @@ private:
 public:
   MLP(const std::string& filename);
   ~MLP();
+  void configRead(const std::string& file);
 };

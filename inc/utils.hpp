@@ -6,8 +6,8 @@
 
 #include <math.h>
 
-#ifndef DEBUG_UTIL
-#define DEGUB_UTIL 0
+#ifndef DEBUG
+#define DEBUG 3
 #endif
 
 std::vector<double> readVec(const std::string& filename, const int& N);
@@ -28,7 +28,7 @@ int sgn(const T& val);
 
 void set_act(const int& actnum, double (**act) (double));
 
-std::map<std::string, std::string> readParam(
+std::map<std::string, std::string> paramMap(
 	const std::string line, std::map<std::string, std::string> params);
 
 void param2vec(const std::string& param, std::vector<int>& vec, const int& N);

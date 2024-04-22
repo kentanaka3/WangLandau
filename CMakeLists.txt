@@ -65,7 +65,7 @@ IF(TEST)
   enable_language(CXX)
 
   set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
-  set(DEBUG_UTIL 3)
+  set(DEBUG 3)
   include(GTest)
 
   add_executable(test_utils test/CXX/test_utils.cpp)
