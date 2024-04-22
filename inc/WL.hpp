@@ -49,6 +49,19 @@ public:
   // (Optional) Final precision of F factor for Wang-Landau implementation
   double log_F_end;
 
+  // (Optional) Probability of choosing single moves
+  double prob_single;
+
+  // Histogram for the Wang-Landau sampling
+  std::vector<unsigned int> hist;
+  std::vector<bool> bins_visited;
+
+  // Log Density of States (Entropy): For Wang-Landau sampling
+  std::vector<double> log_DoS;
+
+  // Explorable regime
+  std::vector<int> explorable{2, 0};
+
   WL(/* args */);
   ~WL();
   double compEnergy();
