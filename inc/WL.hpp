@@ -99,7 +99,6 @@ void WL::paramRead(const std::string& filepath) {
     params["flatness"]      = "2";
     params["prob_single"]   = "3";
     params["explorable"]    = "6";
-    params["maxNorm"]       = "4";
     std::string line;
     /*
     *key = std::stof((*it)[3]);
@@ -150,7 +149,8 @@ void WL::paramPrint() {
             << "N_rand        : " << N_rand << std::endl \
             << "prob_single   : " << prob_single << std::endl \
             << "explorable    : " << explorable[0] << " - " << explorable[1] \
-                                  << std::endl;
+                                  << std::endl \
+            << "filepath      : " << filepath << std::endl << std::endl;
 }
 
 #endif
