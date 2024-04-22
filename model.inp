@@ -1,0 +1,18 @@
+# log_F_end       1e-6
+# min_MCS         200
+# flatness        0.95
+# N_rand          200
+# delX            1.
+# prob_single     1.
+# N_cores         1
+# N_PEs           1
+# check_histo     100
+# input_file      inputs.dat
+# output_file     outputs.dat
+# N_inputs        22
+# actID           0
+# N_layers        2
+# N_units         11 9 1
+# layerProb       1 1
+# explorable      0 22
+# maxNorm         22
