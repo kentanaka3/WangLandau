@@ -61,9 +61,20 @@ public:
 
   WL(/* args */);
   ~WL();
-  double compEnergy();
+  
   void paramRead(const std::string& filepath);
   void paramPrint();
+  bool is_flat(const double& log_F);
+  double min_DoS();
+  void run();
+  void printHist(const double& log_F, const int& MC_step, const int& check,
+                 const int& count);
+
+  virtual double compEnergy() = 0;
+  virtual void moveAccepted() = 0;
+  virtual double moveProposed() = 0;
+  virtual void moveSingleProposed() = 0;
+  virtual void moveRejected() = 0;
 };
 
 WL::WL(/* args */) {
@@ -77,12 +88,6 @@ WL::WL(/* args */) {
 }
 
 WL::~WL() {
-}
-
-double WL::compEnergy() {
-  double energy = 0.;
-
-  return 0;
 }
 
 void WL::paramRead(const std::string& filepath) {
@@ -152,5 +157,7 @@ void WL::paramPrint() {
                                   << std::endl \
             << "filepath      : " << filepath << std::endl << std::endl;
 }
+
+
 
 #endif
