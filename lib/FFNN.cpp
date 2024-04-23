@@ -9,6 +9,11 @@ MLP::MLP(const std::string& file) {
   #if DEBUG >= 3
   paramPrint();
   #endif
+	N_layers = 0;
+	N_inputs = 0;
+	input_file = "";
+	output_file = "";
+	actID = 0;
   #if DEBUG >= 3
   std::cout << " - Reading System Configuration - " << std::endl;
   #endif
@@ -19,6 +24,29 @@ MLP::MLP(const std::string& file) {
 }
 
 MLP::~MLP() {
+}
+
+
+double MLP::compEnergy() {
+  double energy = 0.;
+
+  return 0;
+}
+
+void MLP::moveAccepted() {
+
+}
+
+void MLP::moveSingleProposed() {
+  
+}
+
+double MLP::moveProposed() {
+  return compEnergy();
+}
+
+void MLP::moveRejected() {
+
 }
 
 void MLP::confRead(const std::string& file) {
@@ -65,7 +93,8 @@ void MLP::confRead(const std::string& file) {
 }
 
 void MLP::confPrint() {
-	std::cout << "Number of Input patterns (N_inputs): " << N_inputs \
+	std::cout << "- System Configuration -" << std::endl << std::endl \
+						<< "Number of Input patterns (N_inputs): " << N_inputs \
 						<< std::endl \
 						<< "Number of Layers (N_layers): " << N_layers << std::endl \
 						<< "Input file path (input_file): " << input_file << std::endl \
@@ -75,26 +104,4 @@ void MLP::confPrint() {
 	for (int i = 0; i <= N_layers; i++) std::cout << N_units[i] << ", ";
 	std::cout << std::endl \
 						<< std::endl;
-}
-
-double MLP::compEnergy() {
-  double energy = 0.;
-
-  return 0;
-}
-
-void MLP::moveAccepted() {
-
-}
-
-void MLP::moveSingleProposed() {
-  
-}
-
-double MLP::moveProposed() {
-  return compEnergy();
-}
-
-void MLP::moveRejected() {
-
 }

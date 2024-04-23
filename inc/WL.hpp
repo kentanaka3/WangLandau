@@ -16,35 +16,35 @@ std::mt19937_64 gen(rndm());
 std::uniform_int_distribution<> unf_dist(0., 1.);
 
 class WL {
-private:
-  /* data */
 public:
   // (Required) Filepath of the Input Parameters
   std::string filepath;
 
   // Minimal number of Monte Carlo (MC) steps/updates
-  int min_MCS;
+  int min_MCS = 50;
 
   // Number of bins for Histogram and log_DoS
   int N_bins;
 
+  #ifdef _OPENMP
   // Number of Threads (OMP)
-  int N_cores;
+  int N_cores = 1;
+  #endif
 
   // (Optional) Flatness coefficient
-  double flatness;
+  double flatness = 0.95;
 
   // (Optional) TODO: Change name of the variable
-  int check_histo;
+  int check_histo = 100;
 
   // (Optional) Delta X
-  double delX;
+  double delX = 1.;
 
   // (Optional) Single-weight moves in a single MC step/update
-  int N_rand;
+  int N_rand = 200;
 
   // (Optional) Final precision of F factor for Wang-Landau implementation
-  double log_F_end;
+  double log_F_end = 1e-6;
 
   // (Optional) Probability of choosing single moves
   double prob_single;
@@ -59,9 +59,8 @@ public:
   // Explorable regime
   std::vector<int> explorable{2, 0};
 
-  WL(/* args */);
-  ~WL();
-  
+  virtual ~WL() {};
+
   void paramRead(const std::string& filepath);
   void paramPrint();
   bool is_flat(const double& log_F);
@@ -72,23 +71,10 @@ public:
 
   virtual double compEnergy() = 0;
   virtual void moveAccepted() = 0;
-  virtual void moveSingleProposed() = 0;
   virtual double moveProposed() = 0;
   virtual void moveRejected() = 0;
+  virtual void moveSingleProposed() = 0;
 };
-
-WL::WL(/* args */) {
-  min_MCS = 50;
-  log_F_end = 1e-6;
-  N_cores = 1;
-  N_rand = 200;
-  delX = 1.;
-  check_histo = 100;
-  flatness = 0.95;
-}
-
-WL::~WL() {
-}
 
 void WL::paramRead(const std::string& filepath) {
   std::ifstream ifs(filepath.c_str());
@@ -127,11 +113,13 @@ void WL::paramRead(const std::string& filepath) {
     if (params["delX"] != "3") delX = std::stod(params["delX"]);
     check_histo = std::stoi(params["check_histo"]);
     min_MCS = std::stoi(params["min_MCS"]);
-    N_cores = std::stoi(params["N_cores"]);
     N_rand = std::stoi(params["N_rand"]);
     if (params["prob_single"] != "3")
       prob_single = std::stod(params["prob_single"]);
 		param2vec(params["explorable"], explorable, 2);
+    #ifdef _OPENMP
+    N_cores = std::stoi(params["N_cores"]);
+    #endif
   } else {
     std::cerr << "CRITICAL: Cannot open WL parameter file: " << filepath \
               << ", aborting." << std::endl;
