@@ -91,22 +91,28 @@ double MLP::compEnergy() {
 				if ((layer < N_layers - 1) && !nodeState[layer][node_i]) continue;
 				#pragma omp parallel for reduce(+:H[node_i])
 				for (int node_j = 0; node_j < n_from; node_j++) {
-					#if DEBUG >= 3
-					std::cout << "DEBUG(3): H^{L_{" << layer + 1 << "}} <- " \
+					#if DEBUG >= 4
+					std::cout << "DEBUG(4): H^{L_{" << layer + 1 << "}} <- " \
 															<< "W^{L_{" << layer << "}}_{" << node_i \
 															<< ", " << node_j << "} * ";
 					#endif
 					if (layer == 0) {
+						#if DEBUG >= 4
 						std::cout << "V^{" << mu << "}_{" << node_j << "}";
+						#endif
 						H[node_i] += W[layer][node_i][node_j] * input[mu][node_j];
 					} else if (nodeState[layer - 1][node_j]) {
+						#if DEBUG >= 4
 						std::cout << "\\sigma(H^{L_{" << layer << "}} \\dot "
 											<< "\\hat{e}^{L_{" << layer - 1 << "}}_{" \
 											<< node_j << "})";
+						#endif
 						H[node_i] += W[layer][node_i][node_j] * act(H_prev[node_j]);
 					}
+					#if DEBUG >= 4
 					std::cout << " + B^{L_{" << layer << "}}_{" << node_i << "}" \
 										<< std::endl;
+					#endif
 					H[node_i] += B[layer][node_i];
 				}
 				#if DEBUG >= 2
@@ -141,7 +147,7 @@ void MLP::moveAccepted() {
 
 void MLP::moveSingleProposed(int layer, int node) {
 	#if DEBUG >= 3
-	std::cout << "DEBUG(3): Selecting Layer_" << layer << ", node_" << node
+	std::cout << "L_" << layer << ", node_" << node
 						<< std::endl;
 	#endif
 	nodeState[layer][node] = !nodeState[layer][node];
