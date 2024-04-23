@@ -76,27 +76,23 @@ double MLP::compEnergy() {
 	std::vector<std::ofstream> H_files(N_layers);
 	for (int layer = 0; layer < N_layers; layer++) {
 		filename.str("");
-		filename << filepath << "Output/H_l" << std::setfill('0') << std::setw(3) \
+		filename << filepath << "Output/H" << std::setfill('0') << std::setw(3) \
 						 << layer << ".dat";
 		H_files[layer].open(filename.str());
 	}
 	#endif
 
-	std::vector<double> H_prev, H;
+	std::vector<double> H_prev;
 	for (int mu = 0; mu < N_inputs; mu++) {
 		for (int layer = 0; layer < N_layers; layer++) { // Loop over Layers except last
 			int n_from = N_units[layer], n_to = N_units[layer + 1];
-			H.resize((n_to, 0.));
+			std::vector<double> H(n_to, 0.);
 			for (int node_i = 0; node_i < n_to; node_i++) {
 				if ((layer < N_layers - 1) && !nodeState[layer][node_i]) continue;
-				H[node_i] = B[layer][node_i];
-				// TODO: Use reduce(+: sum)
-				#pragma omp parallel for
+				#pragma omp parallel for reduce(+:H[node_i])
 				for (int node_j = 0; node_j < n_from; node_j++) {
 					#if DEBUG >= 3
 					std::cout << "DEBUG(3): H^{L_{" << layer + 1 << "}} <- " \
-															<< "B^{L_{" << layer << "}}_{" << node_i \
-															<< "} + "
 															<< "W^{L_{" << layer << "}}_{" << node_i \
 															<< ", " << node_j << "} * ";
 					#endif
@@ -106,9 +102,12 @@ double MLP::compEnergy() {
 					} else if (nodeState[layer - 1][node_j]) {
 						std::cout << "\\sigma(H^{L_{" << layer << "}} \\dot "
 											<< "\\hat{e}^{L_{" << layer - 1 << "}}_{" \
-											<< node_j << "})" << std::endl;
+											<< node_j << "})";
 						H[node_i] += W[layer][node_i][node_j] * act(H_prev[node_j]);
 					}
+					std::cout << " + B^{L_{" << layer << "}}_{" << node_i << "}" \
+										<< std::endl;
+					H[node_i] += B[layer][node_i];
 				}
 				#if DEBUG >= 2
 				H_files[layer] << H[node_i] << " ";
