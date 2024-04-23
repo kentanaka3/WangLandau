@@ -2,9 +2,15 @@
 
 MLP::MLP(const std::string& file) {
   filepath = std::filesystem::path(file).remove_filename().string();
+  #if DEBUG >= 3
+  std::cout << " - Reading WL Parameters - " << std::endl;
+  #endif
   paramRead(file);
   #if DEBUG >= 3
   paramPrint();
+  #endif
+  #if DEBUG >= 3
+  std::cout << " - Reading System Configuration - " << std::endl;
   #endif
   confRead(file);
   #if DEBUG >= 3
@@ -75,4 +81,20 @@ double MLP::compEnergy() {
   double energy = 0.;
 
   return 0;
+}
+
+void MLP::moveAccepted() {
+
+}
+
+void MLP::moveSingleProposed() {
+  
+}
+
+double MLP::moveProposed() {
+  return compEnergy();
+}
+
+void MLP::moveRejected() {
+
 }

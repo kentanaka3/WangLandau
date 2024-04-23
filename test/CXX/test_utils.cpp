@@ -45,17 +45,17 @@ TEST(TestParams, ReadParam) {
   params["ncores"]  = "4";
   std::string line = "";
   line = "# double    0.95";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   line = "# string     MLP";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   line = "# int        200";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   line = "# bool      TRUE";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   line = "# float   3.1415";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   line = "# ncores 4";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   ASSERT_EQ(params["double"], "0.95");
   ASSERT_EQ(params["bool"], "TRUE");
   ASSERT_EQ(params["int"], "200");
@@ -63,10 +63,10 @@ TEST(TestParams, ReadParam) {
   ASSERT_EQ(params["float"], "3.1415");
   params["double"]  = "2";
   line = "# double    1e-6";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   params["bool"]    = "5";
   line = "# bool     False";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   ASSERT_EQ(params["bool"], "False");
   ASSERT_EQ(params["double"], "1e-6");
 }
@@ -80,9 +80,9 @@ TEST(TestParams, ParamVec) {
   params["myIntegerParams"] = "6";
   std::string line = "";
   line = "# myDoubleParams    0.95 1 3.0";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   line = "# myIntegerParams    1 2 3";
-  params = readParam(line, params);
+  params = paramMap(line, params);
   ASSERT_EQ(params["myDoubleParams"], "0.95 1 3.0");
   ASSERT_EQ(params["myIntegerParams"], "1 2 3");
   param2vec(params["myIntegerParams"], myIntegerParams, N);

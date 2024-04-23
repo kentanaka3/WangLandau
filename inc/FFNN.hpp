@@ -4,8 +4,6 @@
 std::string MLP_STR = "MLP";
 
 class MLP : public WL {
-private:
-  /* data */
 public:
   // Number of Layers
   int N_layers;
@@ -49,8 +47,8 @@ public:
 
   double compEnergy() override;
   void moveAccepted() override;
-  double moveProposed() override;
   void moveSingleProposed() override;
+  double moveProposed() override;
   void moveRejected() override;
 
   void confRead(const std::string& file);

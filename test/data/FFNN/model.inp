@@ -6,11 +6,12 @@
 # prob_single     1.
 # N_cores         1
 # check_histo     100
-# input_file      inputs.dat
-# output_file     outputs.dat
+# input_file      input.dat
+# output_file     output.dat
 # N_inputs        22
 # actID           0
 # N_layers        2
 # N_units         11 9 1
 # layerProb       1 1
 # explorable      0 22
+# maxNorm         22

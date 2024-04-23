@@ -72,8 +72,8 @@ public:
 
   virtual double compEnergy() = 0;
   virtual void moveAccepted() = 0;
-  virtual double moveProposed() = 0;
   virtual void moveSingleProposed() = 0;
+  virtual double moveProposed() = 0;
   virtual void moveRejected() = 0;
 };
 
@@ -141,7 +141,7 @@ void WL::paramRead(const std::string& filepath) {
 }
 
 void WL::paramPrint() {
-  std::cout << "- System Configuration -" << std::endl << std::endl;
+  std::cout << "- WL Parameters -" << std::endl << std::endl;
   #ifdef _OPENMP
   std::cout << "WARNING: OpenMP enabled with " << N_cores << " cores." \
             << std::endl;
@@ -158,6 +158,26 @@ void WL::paramPrint() {
             << "filepath      : " << filepath << std::endl << std::endl;
 }
 
+bool WL::is_flat(const double& log_F) {
+  bool flat = true;
+
+  return flat;
+}
+
+double WL::min_DoS() {
+  double DoS = 0.;
+
+  return DoS;
+}
+
+void WL::run() {
+
+}
+
+void WL::printHist(const double& log_F, const int& MC_step, const int& check,
+                   const int& count) {
+
+}
 
 
 #endif
