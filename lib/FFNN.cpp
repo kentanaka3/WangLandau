@@ -17,7 +17,7 @@ MLP::MLP(const std::string& file) {
 	moveProposedPtr = (prob_single == 1.) ? &MLP::moveSingleProposed : \
 	 																				&MLP::moveMultipleProposed;
   W.resize(N_layers);
-	biases.resize(N_layers);
+	B.resize(N_layers);
 	std::ostringstream filename;
   for (int l = 0; l < N_layers; l++) {
 		int n_from = N_units[l], n_to = N_units[l + 1];
@@ -36,7 +36,7 @@ MLP::MLP(const std::string& file) {
 		std::cout << "DEBUG(1): Reading Vector file: " << filename.str() \
 							<< std::endl;
 		#endif
-		biases[l] = readVec(filename.str(), n_to);
+		B[l] = readVec(filename.str(), n_to);
   }
 	input.resize(N_inputs, std::vector<double>(N_units[0]));
   nodeState.resize(N_layers);
@@ -84,24 +84,24 @@ double MLP::compEnergy() {
 			H.resize((n_to, 0.));
 			for (int node_i = 0; node_i < n_to; node_i++) {
 				if ((layer < N_layers - 1) && !nodeState[layer][node_i]) continue;
-				H[node_i] = biases[layer][node_i];
+				H[node_i] = B[layer][node_i];
 				// TODO: Use reduce(+: sum)
 				#pragma omp parallel for
 				for (int node_j = 0; node_j < n_from; node_j++) {
 					#if DEBUG >= 3
-					std::cout << "DEBUG(3): H^\{L_\{" << layer + 1 << "\}\} <- " \
-															<< "B^\{L_\{" << layer << "\}\}_\{" << node_i \
-															<< "\} + "
-															<< "W^\{L_\{" << layer << "\}\}_\{" << node_i \
-															<< ", " << node_j << "\} * ";
+					std::cout << "DEBUG(3): H^{L_{" << layer + 1 << "}} <- " \
+															<< "B^{L_{" << layer << "}}_{" << node_i \
+															<< "} + "
+															<< "W^{L_{" << layer << "}}_{" << node_i \
+															<< ", " << node_j << "} * ";
 					#endif
 					if (layer == 0) {
-						std::cout << "V^\{" << mu << "\}_\{" << node_j << "\}";
+						std::cout << "V^{" << mu << "}_{" << node_j << "}";
 						H[node_i] += W[layer][node_i][node_j] * input[mu][node_j];
 					} else if (nodeState[layer - 1][node_j]) {
-						std::cout << "\\sigma(H^\{L_\{" << layer << "\}\} \\dot "
-											<< "\\hat\{e\}^\{L_\{" << layer - 1 << "\}\}_\{" \
-											<< node_j << "\})" << std::endl;
+						std::cout << "\\sigma(H^{L_{" << layer << "}} \\dot "
+											<< "\\hat{e}^{L_{" << layer - 1 << "}}_{" \
+											<< node_j << "})" << std::endl;
 						H[node_i] += W[layer][node_i][node_j] * act(H_prev[node_j]);
 					}
 				}
