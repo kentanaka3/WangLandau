@@ -25,7 +25,7 @@ public:
   std::vector<std::vector<std::vector<double>>> W;
 
   // Biases, Layer x n_to
-  std::vector<std::vector<double>> biases;
+  std::vector<std::vector<double>> B;
 
   // Input file path
   std::string input_file = "";

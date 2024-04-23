@@ -213,9 +213,6 @@ double WL::min_DoS() {
 }
 
 void WL::run() {
-  #if DEBUG >= 0
-  std::cout << "- Running Wang-Landau (WL) -" << std::endl;
-  #endif
   N_bins = int((double)(explorable[1] - explorable[0]) / delX) + 1;
   hist.resize(N_bins, 0);
   log_DoS.resize(N_bins, 0.);
@@ -244,8 +241,11 @@ void WL::run() {
   // Counter for checking the flatness of the Histogram
   int check = 0;
 
+  #if DEBUG >= 0
+  std::cout << "- Running Wang-Landau (WL) -" << std::endl;
+  #endif
   while (log_F >= log_F_end) { // Repeat until Convergence
-    #if DEBUG_WL >= 1
+    #if DEBUG >= 1
     std::cout << "Iteration of Wang-Landau with F factor = " << log_F \
               << std::endl;
     #endif
@@ -263,7 +263,7 @@ void WL::run() {
     while (!flat) { // Repeat until Histogram (hist) is flat
       for (int i = 0; i < N_rand; i++) {
         #if DEBUG >= 3
-        std::cout << "DEBUG(3): Move = " << i;
+        std::cout << "DEBUG(3): MCS = " << i << ", ";
         #endif
         // Proposed energy of the system after a move
         double proposed_energy = moveProposed();
