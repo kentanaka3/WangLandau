@@ -14,48 +14,53 @@ MLP::MLP(const std::string& file) {
   #if DEBUG >= 3
   confPrint();
   #endif
+	#ifdef _OPENMP
+  omp_set_num_threads(N_cores);
+  #endif
 	moveProposedPtr = (prob_single == 1.) ? &MLP::moveSingleProposed : \
 	 																				&MLP::moveMultipleProposed;
   W.resize(N_layers);
 	B.resize(N_layers);
 	std::ostringstream filename;
-  for (int l = 0; l < N_layers; l++) {
-		int n_from = N_units[l], n_to = N_units[l + 1];
+  for (int layer = 0; layer < N_layers; layer++) {
+		int n_from = N_units[layer], n_to = N_units[layer + 1];
 		filename.str("");
 		filename << filepath << "Network/W" << std::setfill('0') << std::setw(3) \
-						 << l << ".dat";
-		#if DEBUG_FFN >= 1
+						 << layer << ".dat";
+		#if DEBUG >= 1
 		std::cout << "DEBUG(1): Reading Matrix file: " << filename.str() \
 							<< std::endl;
 		#endif
-		W[l] = readMtx(filename.str(), n_to, n_from);
+		W[layer] = readMtx(filename.str(), n_to, n_from);
 		filename.str("");
 		filename << filepath << "Network/B" << std::setfill('0') << std::setw(3) \
-						 << l << ".dat";
-		#if DEBUG_FFN >= 1
+						 << layer << ".dat";
+		#if DEBUG >= 1
 		std::cout << "DEBUG(1): Reading Vector file: " << filename.str() \
 							<< std::endl;
 		#endif
-		B[l] = readVec(filename.str(), n_to);
+		B[layer] = readVec(filename.str(), n_to);
   }
-	input.resize(N_inputs, std::vector<double>(N_units[0]));
-  nodeState.resize(N_layers);
-  nodeLedger.resize(N_layers - 1);
+	filename.str("");
+	filename << filepath << input_file;
+	input = readMtx(filename.str(), N_inputs, N_units[0]);
+	filename.str("");
+	filename << filepath << output_file;
+	output = readVec(filename.str(), N_inputs);
+	nodeLedger.resize(N_layers - 1);
 	tosamples.resize(N_layers - 1);
 	for (int l = 0; l < N_layers - 1 - 1; l++) {
 		tosamples[l].resize(N_units[l + 1], 0);
 		#pragma omp parallel for shared(N_units, tosample)
 		for (int i = 0; i < N_units[l + 1]; i++) tosamples[l][i] = i;
 	}
+  nodeState.resize(N_layers);
 	#pragma omp parallel for shared(nodeState, N_layers)
   for (int l = 0; l < (N_layers - 1); l++) {
     nodeState[l].resize(N_units[l + 1], true);
 	}
 	hist.resize(N_bins, 0);
   bins_visited.resize(N_bins, false);
-  #ifdef _OPENMP
-  omp_set_num_threads(N_cores);
-  #endif
 	// Set activation Function
   set_act(actID, &act);
 }
