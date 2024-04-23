@@ -7,6 +7,13 @@
 #include <math.h>
 
 #ifndef DEBUG
+/* = DEBUG =
+ * -1: No comments (Performance)
+ * 0: (Default) Minimal comments
+ * 1: Helper comments will be printed
+ * 2: File comments will be printed
+ * 3: DEBUG, all comments will be printed
+ */
 #define DEBUG 3
 #endif
 
@@ -34,3 +41,5 @@ std::map<std::string, std::string> paramMap(
 void param2vec(const std::string& param, std::vector<int>& vec, const int& N);
 void param2vec(const std::string& param, std::vector<double>& vec,
 							 const int& N);
+
+int argMax(std::vector<double> vec, int length);

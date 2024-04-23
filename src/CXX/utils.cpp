@@ -135,3 +135,9 @@ void param2vec(const std::string& param, std::vector<double>& vec,
 		i++;
 	}
 }
+
+int argMax(std::vector<double> vec, int length) {
+	int i_max = 0;
+	for (int i = 0; i < length; i++) if (vec[i] > vec[i_max]) i_max = i;
+	return i_max;
+}
