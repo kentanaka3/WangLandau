@@ -15,15 +15,30 @@ std::random_device rndm;
 std::mt19937_64 gen(rndm());
 std::uniform_int_distribution<> unf_dist(0., 1.);
 
+class Histogram {
+public:
+  size_t Nbins;
+  double delX;
+  unsigned int counter;
+  std::vector<unsigned int> hist;
+  Histogram(size_t bins) : Nbins(bins), counter(0), hist(bins, 0) {};
+	Histogram() : counter(0) {};
+	virtual ~Histogram() {};
+  unsigned int& operator[](size_t bin);
+  void reset();
+  void update(size_t bin);
+};
+
+
 class WL {
 public:
   // (Required) Filepath of the Input Parameters
   std::string filepath;
 
-  // Minimal number of Monte Carlo (MC) steps/updates
+  // (Optional Parameter) Minimal number of Monte Carlo (MC) steps/updates
   int min_MCS = 50;
 
-  // Number of bins for Histogram and log_DoS
+  // (Variable TBD) Number of bins for Histogram and log_DoS
   int N_bins;
 
   #ifdef _OPENMP
@@ -49,8 +64,17 @@ public:
   // (Optional) Probability of choosing single moves
   double prob_single = 1.;
 
+  // (Variable) Energy of the current Wang-Landau state
+  double energy = 0;
+  // (Variable) Bin of the current Wang-Landau state associated to delX
+  int bin = 0;
+  // (Variable) Flag which determines that Histogram (hist) is flat.
+  bool flat = false;
+  // (Variable) F factor for Wang-Landau implementation
+  double log_F = 1.;
+
   // Histogram for the Wang-Landau sampling
-  std::vector<unsigned int> hist;
+  Histogram hist;
   std::vector<bool> bins_visited;
 
   // Log Density of States (Entropy): For Wang-Landau sampling
@@ -58,15 +82,16 @@ public:
 
   // Explorable regime
   std::vector<int> explorable{2, 0};
-
+  WL() : hist() {}
   virtual ~WL() {};
 
   void paramRead(const std::string& filepath);
   void paramPrint();
-  bool is_flat(const double& log_F, const int& MC_step, const int& check,
-               const int& count);
+  bool is_flat(const double& log_F, const int& MCS, const int& check);
   double min_DoS();
   void run();
+  void statePrint();
+  void stateUpdate(double proposed_energy);
 
   virtual double compEnergy() = 0;
   virtual void moveAccepted() = 0;
@@ -123,6 +148,10 @@ void WL::paramRead(const std::string& filepath) {
               << ", aborting." << std::endl;
 		exit(EXIT_FAILURE);
   }
+  N_bins = int((double)(explorable[1] - explorable[0]) / delX) + 1;
+  log_DoS.resize(N_bins, 0.);
+  bins_visited.resize(N_bins, false);
+  hist = Histogram(N_bins);
   return;
 }
 
@@ -147,17 +176,16 @@ void WL::paramPrint() {
 /*
  * Determine the flatness of the Histogram up to a predefined value
  */
-bool WL::is_flat(const double& log_F, const int& MC_step, const int& check,
-                 const int& count) {
+bool WL::is_flat(const double& log_F, const int& MCS, const int& check) {
   int count_bins = 0;
   double avg_hist = 0.;
-	bool flat = true;
+	bool isFlat = true;
 
   // Computing the average of an Histogram
   #pragma omp parallel for reduction(+:avg_hist)
-  for (int bin = 0; bin < N_bins; bin++) avg_hist += hist[bin] * bins_visited[bin];
+  for (int ibin = 0; ibin < N_bins; ibin++) avg_hist += hist[ibin] * bins_visited[ibin];
   #pragma omp parallel for reduction(+:count_bins)
-  for (int bin = 0; bin < N_bins; bin++) count_bins += bins_visited[bin];
+  for (int ibin = 0; ibin < N_bins; ibin++) count_bins += bins_visited[ibin];
 
   avg_hist /= count_bins;
 
@@ -170,77 +198,57 @@ bool WL::is_flat(const double& log_F, const int& MC_step, const int& check,
   // be lower than flatness times its average or higher than (2 - flatness)
   // times the average.
   // Note: OMP parallelization not available due to break.
-  for (int bin = 0; bin < N_bins; bin++) {
-    double tmp = hist[bin] / avg_hist;
-    if (bins_visited[bin] && (tmp < flatness || (2. - tmp) < flatness)) {
-      flat = false;
+  for (int ibin = 0; ibin < N_bins; ibin++) {
+    double tmp = hist[ibin] / avg_hist;
+    if (bins_visited[ibin] && (tmp < flatness || (2. - tmp) < flatness)) {
+      isFlat = false;
       break;
     }
   }
   std::ostringstream filename;
   filename.str("");
-  filename << filepath << "Output/Hist" << (flat ? "f" : "o") \
+  filename << filepath << "Output/Hist" << (isFlat ? "f" : "o") \
            << "_" << std::setfill('0') << std::setw(10) \
            << std::setprecision(8) << log_F;
-  if (!flat) {
-    filename << "_" << std::setfill('0') << std::setw(5) << MC_step \
-             << "_" << std::setfill('0') << std::setw(5) << check;
-    std::cout << "Flatness condition NOT satisfied." << std::endl;
-  } else {
+  if (isFlat) {
     std::cout << "Flatness condition satisfied" << std::endl \
               << "Iteration with F factor = " << log_F << " completed. " \
               << "Histogram flattened." << std::endl;
+  } else {
+    filename << "_" << std::setfill('0') << std::setw(5) << MCS \
+             << "_" << std::setfill('0') << std::setw(5) << check;
+    std::cout << "Flatness condition NOT satisfied." << std::endl;
   }
   filename << ".dat";
   std::ofstream file_out(filename.str());
-	for (int bin = 0; bin < N_bins; bin++) {
-		file_out << delX*bin << " " << (double)hist[bin] / (double)count \
-						 << " " << log_DoS[bin] << std::endl;
+	for (int ibin = 0; ibin < hist.Nbins; ibin++) {
+		file_out << delX*ibin << " " << (double)hist[ibin] / (double)hist.counter \
+						 << " " << log_DoS[ibin] << std::endl;
 	}
 	file_out.close();
-  return flat;
+  return isFlat;
 }
 
 double WL::min_DoS() {
   double precision = log_F_end / 1000.;
-  int bin = 0;
-  for (bin; bin < N_bins - 1; bin++)
-    if ((log_DoS[bin] < precision) && (precision < log_DoS[bin + 1])) break;
-  double min = log_DoS[++bin];
-  for (++bin; bin < N_bins; bin++)
-    if ((min > log_DoS[bin]) && (log_DoS[bin] > precision)) min = log_DoS[bin];
+  int ibin = 0;
+  for (ibin; ibin < (N_bins - 1); ibin++)
+    if ((log_DoS[ibin] < precision) && (precision < log_DoS[ibin + 1])) break;
+  double min = log_DoS[++ibin];
+  for (++ibin; ibin < N_bins; ibin++)
+    if ((min > log_DoS[ibin]) && (log_DoS[ibin] > precision))
+      min = log_DoS[ibin];
   return min;
 }
 
 void WL::run() {
-  N_bins = int((double)(explorable[1] - explorable[0]) / delX) + 1;
-  hist.resize(N_bins, 0);
-  log_DoS.resize(N_bins, 0.);
-  bins_visited.resize(N_bins, false);
-  // Energy of the system
-  double energy = compEnergy();
-  //
-  int bin = int(energy / delX);
-  std::ofstream file_out;
-	std::ostringstream filename;
-  filename.str("");
-	filename << filepath << "Output/H.dat";
-	file_out.open(filename.str());
-  file_out << bin << ", " << energy << std::endl;
-  file_out.close();
-
-  // Boolean which determines that the bin associated to the next mapping in
-  // the sequence has been visited
-  bool visited = true;
-  bins_visited[bin] = visited;
-
-  // F factor for Wang-Landau implementation
-  double log_F = 1.;
-  log_DoS[bin] += log_F;
-
   // Counter for checking the flatness of the Histogram
   int check = 0;
-
+  // Energy of the system
+  stateUpdate(compEnergy());
+  #if DEBUG >= 2
+  statePrint();
+  #endif
   #if DEBUG >= 0
   std::cout << "- Running Wang-Landau (WL) -" << std::endl;
   #endif
@@ -249,72 +257,99 @@ void WL::run() {
     std::cout << "Iteration of Wang-Landau with F factor = " << log_F \
               << std::endl;
     #endif
-    int MC_step = 0;
-    int count = 0;
+    int MCS = 0;
 		check++;
 
-    // Flag which determines that Histogram (hist) is NOT flat.
-    bool flat = false;
-
     // Reset Histogram
-    #pragma omp parallel for shared(hist, N_bins)
-    for (int i = 0; i < N_bins; i++) hist[i] = 0;
-
+    flat = false;
+    hist.reset();
     while (!flat) { // Repeat until Histogram (hist) is flat
-      for (int i = 0; i < N_rand; i++) {
+      for (int update = 0; update < N_rand; update++) {
         #if DEBUG >= 3
-        std::cout << "DEBUG(3): MCS = " << i << ", ";
+        std::cout << "DEBUG(3): update = " << update << ", ";
         #endif
         // Proposed energy of the system after a move
         double proposed_energy = moveProposed();
         int proposed_bin = int(proposed_energy / delX);
         if ((proposed_energy >= explorable[0]) && \
             (proposed_energy <= explorable[1]) && \
-            log(unf_dist(gen)) < (log_DoS[bin] - log_DoS[proposed_bin])) {
+            (log(unf_dist(gen)) < (log_DoS[bin] - log_DoS[proposed_bin]))) {
           // Accept move
           #if DEBUG >= 3
-          std::cout << " accepted" << std::endl;
+          std::cout << "accepted" << std::endl;
           #endif
           moveAccepted();
           // Update bin and energy
-          energy = proposed_energy;
-          bin = proposed_bin;
-          visited = bins_visited[bin];
+          stateUpdate(proposed_energy);
+          // If a NEW bin has been visited, restart the Histogram but do NOT update
+          // F factor.
         } else {
           // Reject move
           #if DEBUG >= 3
-          std::cout << " rejected" << std::endl;
+          std::cout << "rejected" << std::endl;
           #endif
           moveRejected();
         }
-        hist[bin]++;
-        count++;
-        if (!visited) {
-          #if DEBUG >= 0
-          std::cout << "DEBUG(0): New visited " << bin << "w/ loss " \
-                    << delX*bin << std::endl;
-          #endif
-          bins_visited[bin] = true;
-          log_DoS[bin] += min_DoS();
-          break;
-        } else {
-          log_DoS[bin] += log_F;
-        }
+        if (!(bins_visited[bin])) break;
       } // for i < N_rand
-
       // If a NEW bin has been visited, restart the Histogram but do NOT update
       // F factor.
-      if (!visited) break;
-      if ((++check >= check_histo) && (++MC_step >= min_MCS)) {
-				std::cout << "Checking histo of f = " << logf \
-									<< ", MC_step = " << MC_step \
+      if (!(bins_visited[bin])) break;
+      check++;
+      MCS++;
+      if ((check >= check_histo) && (MCS >= min_MCS)) {
+				std::cout << "Checking histo of f = " << log_F << ", MCS = " << MCS \
 									<< ", checkbox = " << check << std::endl;
 				check = 0; //reset the counter for checking the histogram flatness
-				flat = !is_flat(log_F, MC_step, check, count); //checking the histogram flatness
+				flat = is_flat(log_F, MCS, check); //checking the histogram flatness
 			}
     } // Flat Histogram
+    if (!(bins_visited[bin])) continue;
     log_F *= 0.5;
   } // log_F < log_F_end
 	std::cout << "Done." << std::endl;
+}
+
+void WL::statePrint() {
+  std::ofstream file_out;
+	std::ostringstream filename;
+  filename.str("");
+	filename << filepath << "Output/H.dat";
+	file_out.open(filename.str());
+  file_out << bin << ", " << energy << std::endl;
+  file_out.close();
+}
+
+void WL::stateUpdate(double proposed_energy) {
+  energy = proposed_energy;
+  bin = int(proposed_energy / delX);
+  if (bins_visited[bin]) {
+    log_DoS[bin] += log_F;
+  } else {
+    #if DEBUG >= 0
+    std::cout << "DEBUG(0): New visited " << bin << " w/ loss " \
+              << delX*bin << std::endl;
+    #endif
+    bins_visited[bin] = true;
+    log_DoS[bin] += min_DoS();
+  }
+  hist[bin]++;
+}
+
+unsigned int& Histogram::operator[](size_t bin) {
+  if (bin >= Nbins) throw std::out_of_range("Index out of range");
+  return hist[bin];
+}
+
+void Histogram::reset() {
+  #pragma omp parallel for shared(hist, Nbins)
+  for (size_t i = 0; i < Nbins; i++) hist[i] = 0;
+  counter = 0;
+}
+
+void Histogram::update(size_t bin) {
+  if (bin >= Nbins) throw std::out_of_range("Index out of range");
+  hist[bin]++;
+  counter++;
 }
 #endif

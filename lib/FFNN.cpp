@@ -63,10 +63,6 @@ MLP::MLP(const std::string& file) {
   set_act(actID, &act);
 }
 
-MLP::~MLP() {
-}
-
-
 double MLP::compEnergy() {
 	std::vector<double> losses_mu(N_inputs, 0.);
 	#if DEBUG >= 2

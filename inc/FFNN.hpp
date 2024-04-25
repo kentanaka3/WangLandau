@@ -46,7 +46,7 @@ public:
   std::vector<std::vector<int>> tosamples;
 
   MLP(const std::string& filename);
-  ~MLP();
+  ~MLP() {};
 
   typedef void (MLP::*FuncPtr)(int, int);
   void moveSingleProposed(int layer, int node);

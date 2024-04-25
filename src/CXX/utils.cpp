@@ -1,22 +1,5 @@
 #include "utils.hpp"
 
-unsigned int& Histogram::operator[](size_t bin) {
-  if (bin >= Nbins) throw std::out_of_range("Index out of range");
-  return hist[bin];
-}
-
-void Histogram::reset() {
-  #pragma omp parallel for shared(hist, Nbins)
-  for (size_t i = 0; i < Nbins; i++) hist[i] = 0;
-  counter = 0;
-}
-
-void Histogram::update(size_t bin) {
-  if (bin >= Nbins) throw std::out_of_range("Index out of range");
-  hist[bin]++;
-  counter++;
-}
-
 std::vector<double> readVec(const std::string& filename, const int& N) {
   std::vector<double> vec(N, 0);
 	std::ifstream myFile(filename.c_str());
