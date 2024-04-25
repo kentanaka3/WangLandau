@@ -59,8 +59,6 @@ MLP::MLP(const std::string& file) {
   for (int l = 0; l < (N_layers - 1); l++) {
     nodeState[l].resize(N_units[l + 1], true);
 	}
-	hist.resize(N_bins, 0);
-  bins_visited.resize(N_bins, false);
 	// Set activation Function
   set_act(actID, &act);
 }
@@ -84,11 +82,11 @@ double MLP::compEnergy() {
 
 	std::vector<double> H_prev;
 	for (int mu = 0; mu < N_inputs; mu++) {
-		for (int layer = 0; layer < N_layers; layer++) { // Loop over Layers except last
+		for (int layer = 0; layer < N_layers; layer++) { // Loop over Layers
 			int n_from = N_units[layer], n_to = N_units[layer + 1];
 			std::vector<double> H(n_to, 0.);
 			for (int node_i = 0; node_i < n_to; node_i++) {
-				if ((layer < N_layers - 1) && !nodeState[layer][node_i]) continue;
+				if ((layer < N_layers - 1) && !(nodeState[layer][node_i])) continue;
 				#pragma omp parallel for reduce(+:H[node_i])
 				for (int node_j = 0; node_j < n_from; node_j++) {
 					#if DEBUG >= 4
@@ -113,12 +111,12 @@ double MLP::compEnergy() {
 					std::cout << " + B^{L_{" << layer << "}}_{" << node_i << "}" \
 										<< std::endl;
 					#endif
-					H[node_i] += B[layer][node_i];
-				}
+				} // node_j < n_from
+				H[node_i] += B[layer][node_i];
 				#if DEBUG >= 2
 				H_files[layer] << H[node_i] << " ";
 				#endif
-			}
+			} // node_i < n_to
 			#if DEBUG >= 2
 			H_files[layer] << std::endl;
 			#endif
@@ -147,10 +145,9 @@ void MLP::moveAccepted() {
 
 void MLP::moveSingleProposed(int layer, int node) {
 	#if DEBUG >= 3
-	std::cout << "L_" << layer << ", node_" << node
-						<< std::endl;
+	std::cout << "L_" << layer << ", node_" << node << ", ";
 	#endif
-	nodeState[layer][node] = !nodeState[layer][node];
+	nodeState[layer][node] = !(nodeState[layer][node]);
 	nodeLedger[layer].push_back(node);
 }
 
@@ -183,13 +180,13 @@ double MLP::moveProposed() {
 }
 
 void MLP::moveRejected() {
-	for (int layer = 0; layer < N_layers - 1; layer++) {
+	for (int layer = 0; layer < (N_layers - 1); layer++) {
 		int N_change = nodeLedger[layer].end() - nodeLedger[layer].begin();
 		#pragma omp parallel for shared(nodeState, nodeLedger, layer)
 		for (int c = 0; c < N_change; c++) {
 			int node = nodeLedger[layer][c];
 			// TODO: Revise Vectorization protocol
-			nodeState[layer][node] = !nodeState[layer][node];
+			nodeState[layer][node] = !(nodeState[layer][node]);
 		}
 	}
 }
@@ -247,6 +244,5 @@ void MLP::confPrint() {
 						<< "Activation function ID (actID): " << actID << std::endl \
 						<< "Number of Units per Layer (N_units): ";
 	for (int i = 0; i <= N_layers; i++) std::cout << N_units[i] << ", ";
-	std::cout << std::endl \
-						<< std::endl;
+	std::cout << std::endl;
 }

@@ -18,6 +18,19 @@
 #define DEBUG 3
 #endif
 
+class Histogram {
+public:
+  size_t Nbins;
+  double delX;
+  unsigned int counter;
+  std::vector<unsigned int> hist;
+  Histogram(size_t bins) : Nbins(bins), counter(0), hist(bins, 0) {};
+	~Histogram() {};
+  unsigned int& operator[](size_t bin);
+  void reset();
+  void update(size_t bin);
+};
+
 std::vector<double> readVec(const std::string& filename, const int& N);
 
 std::vector<std::vector<double>> readMtx(const std::string& filename,
