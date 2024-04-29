@@ -29,6 +29,8 @@ void printVec(const std::string& filename, std::vector<double> vec,
 void printMtx(const std::string& filename, const int& rows, const int& cols,
 							std::vector<std::vector<double>> mtx);
 
+std::string lastLine(const std::string& filepath);
+
 double relu(const double x);
 
 template <typename T>

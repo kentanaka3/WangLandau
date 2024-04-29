@@ -12,5 +12,8 @@ test: veryclean
 run_test:
 	./test_utils.x
 
+brain: veryclean openmp
+	cmake --build build/ && ./build/Brain.x 1 /home/ken/Desktop/WangLandau/data/Brain.init
+
 veryclean:
 	rm -rf build

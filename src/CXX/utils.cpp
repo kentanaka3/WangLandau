@@ -85,14 +85,43 @@ void set_act(const int& actnum, double (**act) (double)) {
 	std::cout << std::endl;
 }
 
+std::string lastLine(const std::string& filepath) {
+	std::ifstream fin;
+  fin.open(filepath);
+	std::string line;
+	if (fin.is_open()) {
+    fin.seekg(-1, std::ios_base::end);                // go to one spot before the EOF
+		bool keepLooping = true;
+    while(keepLooping) {
+			char ch;
+			fin.get(ch);                            // Get current byte's data
+
+			if ((int)fin.tellg() <= 1) {             // If the data was at or before the 0th byte
+				fin.seekg(0);                       // The first line is the last line
+				keepLooping = false;                // So stop there
+			} else if(ch == '\n') {                   // If the data was a newline
+				keepLooping = false;                // Stop at the current position.
+			} else {                                  // If the data was neither a newline nor at the 0 byte
+				fin.seekg(-2, std::ios_base::cur);        // Move to the front of that data, then to the front of the data before it
+			}
+		}
+		getline(fin, line);
+		fin.close();
+  } else {
+		std::cerr << "Error: Unable to read file " << filepath << "\n";
+    return "";
+	}
+	return line;
+}
+
 // TODO: Consider reference instead of value
 std::map<std::string, std::string> paramMap(const std::string line,
                std::map<std::string, std::string> params) {
   // RegEx group         0,   1,      2,     3,   4,    5,      6 =
   //              original, key, double, float, int, bool, string
   std::regex expr("^# (\\w+)[\\t ]*" \
-                  "(?:(0*\\.\\d+|\\de-*\\d+)|" \
-                  "(\\d+\\.\\d+|\\d+\\.)|" \
+                  "(?:(-*0*\\.\\d+|\\de-*\\d+)|" \
+                  "(-*\\d+\\.\\d+|\\d+\\.)|" \
                   "(-*\\d+)|" \
                   "(TRUE|FALSE)|" \
                   "((\\w|\\.| )*))$", std::regex_constants::icase);

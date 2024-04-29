@@ -51,7 +51,7 @@ MLP::MLP(const std::string& file) {
 	tosamples.resize(N_layers - 1);
 	for (int l = 0; l < N_layers - 1 - 1; l++) {
 		tosamples[l].resize(N_units[l + 1], 0);
-		#pragma omp parallel for shared(N_units, tosample)
+		#pragma omp parallel for shared(N_units, tosamples)
 		for (int i = 0; i < N_units[l + 1]; i++) tosamples[l][i] = i;
 	}
   nodeState.resize(N_layers);
@@ -83,7 +83,6 @@ double MLP::compEnergy() {
 			std::vector<double> H(n_to, 0.);
 			for (int node_i = 0; node_i < n_to; node_i++) {
 				if ((layer < N_layers - 1) && !(nodeState[layer][node_i])) continue;
-				#pragma omp parallel for reduce(+:H[node_i])
 				for (int node_j = 0; node_j < n_from; node_j++) {
 					#if DEBUG >= 4
 					std::cout << "DEBUG(4): H^{L_{" << layer + 1 << "}} <- " \

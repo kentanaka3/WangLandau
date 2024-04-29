@@ -13,6 +13,10 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 OLD)
 endif()
 
+set(INCLUDE_DIR "./inc")
+set(SOURCE_DIR "./src/CXX")
+set(LIBRARY_DIR "./lib")
+
 # Define minimum C++ version for Mac
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,6 +30,7 @@ if(NOT WIN32)
 endif()
 
 add_executable(WL.x src/CXX/main.cpp)
+add_executable(Brain.x src/CXX/neuron.cpp)
 add_library(utilLib SHARED src/CXX/utils.cpp)
 add_library(FFNNLib SHARED lib/FFNN.cpp src/CXX/utils.cpp)
 
@@ -36,7 +41,6 @@ IF(GNUPLOT_FOUND)
 ELSE()
   message("${G} #               GNUPlot SUPPORT IS ON       #${CReset}")
 ENDIF()
-
 
 option(USE_OMP "Enable OpenMP calls" OFF)
 IF(USE_OMP)
@@ -56,8 +60,8 @@ ELSE()
 ENDIF()
 
 include_directories(inc)
-
 target_link_libraries(WL.x FFNNLib)
+target_link_libraries(Brain.x utilLib)
 
 option(TEST "Enable Unit Tests" OFF)
 IF(TEST)
