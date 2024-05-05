@@ -48,7 +48,7 @@ void printVec(const std::string& filename, std::vector<double> vec,
 }
 
 void printMtx(const std::string& filename, const int& rows, const int& cols,
-							std::vector<std::vector<double>> mtx) {
+							const std::vector<std::vector<double>>& mtx) {
 	std::ofstream file_out;
 	file_out.open(filename.c_str());
 	for (int i = 0; i < rows; i++) {
