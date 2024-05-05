@@ -1,12 +1,15 @@
 #include <iostream>
-#include <map>
-#include <omp.h>
-#include <math.h>
-#include <random>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+#include <cmath>
 #include <iomanip>
-#include <istream>
-#include <complex>
 #include <filesystem>
+#include <map>
+#include <complex>
+#include <random>
+#include <omp.h>
 
 #include "utils.hpp"
 
@@ -43,187 +46,88 @@ private:
   std::vector<T> Past;
   // Error
   double Error;
+public:
   // Weights
   std::vector<double> Weights;
-  // Log file of the neuron
-  std::string filename;
-public:
   bool train;
-  neuron(const T& value, const std::vector<T> weights, T bias, double error,
-         const std::string& file) : Value(value), train(true), filename(file),
-    Bias(bias), Past(std::vector<T>(MARKOVIANITY, Value)), Weights(weights),
-    Error(error) {};
+  neuron(const std::string& file);
   ~neuron() {};
-  T readLastLine(const std::string& file);
   void HelloWorld();
-  void capture();
 
-  T frontPropagate(const std::vector<T>& a);
-  void backPropagate();
-  void test();
-  std::vector<double> updateWeights(double LrnRt, const std::vector<T>& a);
 };
 
+// Definitions for neuron class methods
 template<typename T>
-T neuron<T>::readLastLine(const std::string& file) {
-  std::map<std::string, std::string> params;
-  if constexpr (std::is_same_v<T, int>) {
-    params["Value"] = "4";
-  } else if constexpr (std::is_same_v<T, double>) {
-    params["Value"] = "2";
-  } else if constexpr (std::is_same_v<T, bool>) {
-    params["Value"] = "5";
-  } else if constexpr (std::is_same_v<T, std::complex>) {
-    params["Value"] = "6";
-  }
-  params = paramMap(lastLine(file), params);
-  if constexpr (std::is_same_v<T, int>) {
-    return std::atoi(params["Value"].c_str());
-  } else if constexpr (std::is_same_v<T, double>) {
-    return std::atof(params["Value"].c_str());
-  } else if constexpr (std::is_same_v<T, bool>) {
-    return params["Value"] == "1" ? true : false;
-  } else if constexpr (std::is_same_v<T, std::complex>) {
-    return 1.;
-  }
-}
+neuron<T>::neuron(const std::string& file) {
 
-template<typename T>
-void neuron<T>::backPropagate() {
-  // Calculate delta error
-  double delta = Value * (1.0 - Value) * (Value - Past[MARKOVIANITY - 1]);
-  // Update weights
-  for (size_t i = 0; i < Weights.size(); ++i)
-    Weights[i] += unf_dist(gen) * delta;
-  // Update bias
-  Bias += delta;
-  // Update the Past vector for Markovianity
-  Past.erase(Past.begin());
-  Past.push_back(Value);
-}
-
-template<typename T>
-void neuron<T>::capture() {
-  std::ofstream fp(filename, std::ios_base::app);
-  if (fp) {
-    fp << "# Value\t" << Value << std::endl;
-    fp.close();
-  } else std::cerr << "Failed to open file : " << filename << std::endl;
 }
 
 template<typename T>
 void neuron<T>::HelloWorld() {
   std::cout << this->Value << ", ";
-  capture();
 }
 
-template<typename T>
-void neuron<T>::test() {
 
-}
-
-template<typename T>
-T neuron<T>::frontPropagate(const std::vector<T>& a) {
-  T sum = 0;
-  #pragma omp parallel for reduce(+:sum)
-  for (size_t i = 0; i < Weights.size(); ++i) sum += Weights[i] * a[i];
-  Value = sgmd(sum + Bias);
-  // Update the Past vector for Markovianity
-  if (Past.size()) {
-    Past.erase(Past.begin());
-    Past.push_back(Value);
-  }
-  return Value;
-}
-
-template<typename T>
-std::vector<double> neuron<T>::updateWeights(double LrnRt,
-                                             const std::vector<T>& a) {
-  #pragma omp parallel for
-  for (size_t i = 0; i < Weights.size(); ++i)
-    Weights[i] += LrnRt * Error * a[i];
-  Bias += LrnRt * Error;
-  return Weights;
-}
 
 template<typename T>
 class Layer {
 private:
   // Neurons
   std::vector<neuron<T>> Neurons;
-  // Weights
-  std::vector<std::vector<double>> Weights;
+  // Learning Rate
+  double LrnRate;
 public:
   size_t N_nodes;
+  size_t N_connections;
   std::string filename;
-  Layer(const size_t& n_nodes, const size_t& n_u, const T& state,
+  Layer(const size_t& n_nodes, const size_t& n_connections, const T& state,
         const std::string& file);
   ~Layer() {};
   void HelloWorld();
-  void frontPropagate();
-  void backPropagate();
-  void encode();
-  void decode();
-  void test();
-  void updateWeights();
+  std::vector<std::vector<double>> Weights();
+  std::vector<double> Weights(size_t i);
+  double Weights(size_t i, size_t j);
 };
 
+// Definitions for Layer class methods
 template<typename T>
-Layer<T>::Layer(const size_t& n_nodes, const size_t& n_u, const T& state,
-                const std::string& file) : N_nodes(n_nodes), filename(file) {
+Layer<T>::Layer(const size_t& n_nodes, const size_t& n_connections,
+                const T& state, const std::string& file) : N_nodes(n_nodes),
+  N_connections(n_connections), filename(file), LrnRate(0.9) {
   std::filesystem::create_directories(file);
+  // Create Layer file
   std::ostringstream filepath("");
-  filepath << file << "/W.dat";
+  filepath << file << "/L.dat";
   std::ofstream fp;
   fp.open(filepath.str());
-  if (fp.is_open()) fp.close();
-  else std::cerr << "Failed to open file : " << filepath.str() << std::endl;
+  if (fp.is_open()) {
+    fp << "# Type           double" << std::endl \
+       << "# N_connections  " << N_connections << std::endl;
+    fp.close();
+  } else std::cerr << "Failed to open file : " << filepath.str() << std::endl;
+  Neurons.resize(N_nodes, neuron<T>(filepath.str()));
+  // Create Weights file
   filepath.str("");
-  filepath << file << "/" << std::setfill('0') \
-           << std::setw(static_cast<int>(log10(MAX_NEURONS))) << 0 << ".dat";
-  Neurons.resize(N_nodes, neuron<T>(n_u, state, filepath.str()));
-  for (size_t n = 0; n < n_nodes; n++) {
-    filepath.str("");
-    filepath << file << "/" << std::setfill('0') \
-             << std::setw(static_cast<int>(log10(MAX_NEURONS))) << n << ".dat";
-    Neurons[n].filename = filepath.str();
-    std::ofstream fp;
-    fp.open(filepath.str());
-    if (fp.is_open()) fp.close();
-    else std::cerr << "Failed to open file : " << filepath.str() << std::endl;
-  }
+  filepath << file << "/W.dat";
+  // Print Matrix
+  printMtx(filepath.str(), N_nodes, N_connections, this->Weights());
 }
 
 template<typename T>
 void Layer<T>::HelloWorld() {for (neuron<T>& n : Neurons) n.HelloWorld();}
 
-// Forward propagate through neurons in this layer
 template<typename T>
-void Layer<T>::frontPropagate() {
-  for (neuron<T>& n : Neurons) n.frontPropagate(filename);
+std::vector<std::vector<double>> Layer<T>::Weights() {
+  std::vector<std::vector<double>> W(N_nodes);
+  for (size_t n = 0; n < N_nodes; n++) {
+    int i = 0;
+    for (const auto& w: Neurons[n].Weights) {
+      W[n][i] = w;
+      i++;
+    }
+  }
+  return W;
 }
-
-// Backward propagate through neurons in this layer
-template<typename T>
-void Layer<T>::backPropagate() {
-  for (neuron<T>& n : Neurons) n.backPropagate();
-}
-
-// Encode the states of neurons in this layer
-template<typename T>
-void Layer<T>::encode() {for (neuron<T>& n : Neurons) n.encode();}
-
-// Decode the states of neurons in this layer
-template<typename T>
-void Layer<T>::decode() {for (neuron<T>& n : Neurons) n.decode();}
-
-// Decode the states of neurons in this layer
-template<typename T>
-void Layer<T>::test() {for (neuron<T>& n : Neurons) n.test();}
-
-// Decode the states of neurons in this layer
-template<typename T>
-void Layer<T>::test() {for (neuron<T>& n : Neurons) n.test();}
 
 template<typename T>
 class Brain {
@@ -235,14 +139,10 @@ public:
   Brain(const double& fR, const std::string& file, const T& state);
   ~Brain() {};
   void HelloWorld();
-  void backPropagate();
-  void encode();
-  void decode();
-  void test();
-  void backwardPass(const std::vector<double>& expectedOutputs);
-  
+  void forward(std::vector<T> input); // Changed return type to void
 };
 
+// Definitions for Brain class methods
 template<typename T>
 Brain<T>::Brain(const double& fR, const std::string& file, const T& state) : \
   flopRate(fR), \
@@ -298,7 +198,7 @@ void Brain<T>::HelloWorld() {
 }
 
 template<typename T>
-void Brain<T>::backPropagate() {
+void Brain<T>::forward(std::vector<T> input) {
   /*
    * I ----- O
    * |       |
@@ -314,53 +214,23 @@ void Brain<T>::backPropagate() {
    * s(s(s(X)))
    * s(s(s(s(X))))
    */
-  size_t layer = 1;
-  for (layer; layer < l; layer++) Layers[layer].frontPropagate();
-  // FILL IN HERE
-  for (layer; layer >= 1; layer--) Layers[layer].backPropagate();
-}
-
-// Decode the states of neurons in all layers
-template<typename T>
-void Brain<T>::decode() {for (Layer<T>& L : Layers) L.decode();}
-
-// Encode the states of neurons in all layers
-template<typename T>
-void Brain<T>::encode() {for (Layer<T>& L : Layers) L.encode();}
-
-// Test the states of neurons in all layers
-template<typename T>
-void Brain<T>::test() {for (Layer<T>& L : Layers) L.test();}
-
-// Backward pass through the network (Backpropagation)
-template<typename T>
-void Brain<T>::backwardPass(const std::vector<double>& expectedOutputs) {
-  // Calculate errors for output layer
-  std::vector<T> outputErrors;
-  std::vector<T> outputs = Layers.back().getOutputs();
-  for (int i = 0; i < outputs.size(); ++i) {
-    outputErrors.push_back(outputs[i] - expectedOutputs[i]);
-  }
-  Layers.back().setErrors(outputErrors);
-
-  // Update weights starting from the output layer
-  for (int i = Layers.size() - 1; i >= 0; --i) {
-    std::vector<double> inputs;
-    inputs = (i == 0) ? std::vector<double>() : Layers[i - 1].getOutputs();
-    // Inputs are outputs of previous layer
-    // Input layer has no inputs
-    Layers[i].updateWeights(inputs, learningRate);
-    // Calculate errors for hidden layers (if any)
-    if (i > 0) {
-      std::vector<double> errors;
-      for (int j = 0; j < Layers[i].getOutputs().size(); ++j) {
-        double error = 0.;
-        for (const auto& neuron : Layers[i].neurons) {
-          error += neuron.getError() * neuron.activatePrime(neuron.getOutput()) * neuron.getOutput();
-        }
-        errors.push_back(error);
+  std::vector<T> current_input = input;
+  // Propagate input through each layer
+  for (size_t i = 0; i < Layers.size(); ++i) {
+    std::vector<T> layer_output(Layers[i].N_nodes);
+    // Propagate input through each neuron in the layer
+    for (size_t j = 0; j < Layers[i].N_nodes; ++j) {
+      T neuron_output = 0;
+      // Calculate weighted sum of inputs
+      for (size_t k = 0; k < current_input.size(); ++k) {
+        neuron_output += current_input[k] * Layers[i].Weights[j][k];
       }
-      Layers[i - 1].setErrors(errors);
+      // Apply activation function
+      neuron_output = sgmd(neuron_output + Layers[i].Neurons[j].Bias);
+      Layers[i].Neurons[j].Value = neuron_output;
+      layer_output[j] = neuron_output;
     }
+    // Set current input to the output of this layer for the next layer
+    current_input = layer_output;
   }
 }
