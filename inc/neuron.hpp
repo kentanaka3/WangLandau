@@ -1,99 +1,160 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <fstream>
-#include <cmath>
-#include <iomanip>
-#include <filesystem>
-#include <map>
+#include "utils.hpp"
+
 #include <complex>
+#include <filesystem>
 #include <random>
 #include <omp.h>
 
-#include "utils.hpp"
+double meanSquaredError(const std::vector<double>& y_true,
+												const std::vector<double>& y_pred) {
+	if (y_true.size() != y_pred.size()) {
+		std::cerr << "Error: Size mismatch between true and predicted values.\n";
+		return -1; // Return error code
+	}
+	double sumSquaredError = 0.0;
+	for (size_t i = 0; i < y_true.size(); ++i) {
+		double error = y_true[i] - y_pred[i];
+		sumSquaredError += error * error;
+	}
+	return sumSquaredError / static_cast<double>(y_true.size());
+}
+
+double binaryCrossEntropy(const std::vector<double>& y_true,
+													const std::vector<double>& y_pred) {
+	if (y_true.size() != y_pred.size()) {
+		std::cerr << "Error: Size mismatch between true and predicted values.\n";
+		return -1; // Return error code
+	}
+	double sumCrossEntropy = 0.0;
+	for (size_t i = 0; i < y_true.size(); ++i) {
+		sumCrossEntropy += y_true[i] * std::log(y_pred[i]) \
+											+ (1 - y_true[i]) * std::log(1 - y_pred[i]);
+	}
+	return -sumCrossEntropy / static_cast<double>(y_true.size());
+}
 
 std::complex<double> INIT_STATE_CMPLX = 1.;
 bool INIT_STATE_ISING = true;
 size_t INIT_STATE_POTTS = 0;
-double INIT_STATE_SIGMA = 0.999999;
-int MAX_LAYERS = 100, MAX_NEURONS = 1000;
+double INIT_STATE_SIGMA = 1.;
 std::ostringstream DATA_PATH{"data/"};
 unsigned int MARKOVIANITY = 0;
 
-template<typename T>
-T sgmd(const T& x) {return 1./(1. + std::exp(-x));}
-template<typename T>
-T D_sgmd(const T& x) {
-  double activated = sgmd(x);
-  return activated * (1 - activated);
-}
-template<typename T>
-T relu(const T& x) {return (x < T(0) ? T(0) : T(1));}
-
 std::random_device rndm;
 std::mt19937_64 gen(rndm());
-std::uniform_int_distribution<> unf_dist(0., 1.);
+std::uniform_int_distribution<> unf_dist(-1., 1.);
 
-template<typename T>
 class neuron {
 private:
+public:
   // Bias
-  T Bias;
+  double Bias;
   // Value
-  T Value;
+  double Value = INIT_STATE_SIGMA;
+  // State
+  bool State = true;
   // Past Values
-  std::vector<T> Past;
+  std::vector<double> Past;
   // Error
   double Error;
-public:
   // Weights
   std::vector<double> Weights;
+  int N_connections;
   bool train;
   neuron(const std::string& file);
   ~neuron() {};
   void HelloWorld();
-
+  double forward(const std::vector<double>& input);
 };
 
 // Definitions for neuron class methods
-template<typename T>
-neuron<T>::neuron(const std::string& file) {
+neuron::neuron(const std::string& file) : \
+  Past(std::vector<double>(MARKOVIANITY, INIT_STATE_SIGMA)) {
+  std::cout << "Creating Neuron @ " << file << std::endl;
+  std::map<std::string, std::string> params;
+  params["Type"] = "6";
+  params["LrnRate"] = "2";
+  params["Bias"] = "3";
+  params["N_connections"] = "4";
+  std::ifstream fr(file);
+  if (!fr.is_open()) {
+    std::cerr << "Error: Unable to init file " << file << "\n";
+  }
+  std::string line;
+  // Read Parameters by parsing with RegEx
+  while (std::getline(fr, line)) params = paramMap(line, params);
+  fr.close();
 
+  N_connections = std::atoi(params["N_connections"].c_str());
+  for (size_t i = 0; i < N_connections; i++) Weights.push_back(unf_dist(gen));
+  Bias = unf_dist(gen);
 }
 
-template<typename T>
-void neuron<T>::HelloWorld() {
-  std::cout << this->Value << ", ";
+void neuron::HelloWorld() {std::cout << this->Value << ", ";}
+
+double neuron::forward(const std::vector<double>& input) {
+  double sum = 0.;
+  for (size_t i = 0; i < N_connections; i++) {sum += input[i] * Weights[i];}
+  return relu(sum + Bias);
 }
 
 
 
-template<typename T>
+
+
+
+
+
+
+
+
+
+
+
+int MAX_NEURONS = 1000;
+
 class Layer {
 private:
-  // Neurons
-  std::vector<neuron<T>> Neurons;
-  // Learning Rate
-  double LrnRate;
 public:
+// Learning Rate
+  double LrnRate;
+  // Neurons
+  std::vector<neuron> Neurons;
   size_t N_nodes;
   size_t N_connections;
   std::string filename;
-  Layer(const size_t& n_nodes, const size_t& n_connections, const T& state,
-        const std::string& file);
-  ~Layer() {};
-  void HelloWorld();
   std::vector<std::vector<double>> Weights();
   std::vector<double> Weights(size_t i);
   double Weights(size_t i, size_t j);
+  void HelloWorld();
+  std::vector<double> forward(std::vector<double> input);
+  Layer(const size_t& n_nodes, const size_t& n_connections,
+        const std::string& file);
+  ~Layer() {};
 };
 
 // Definitions for Layer class methods
-template<typename T>
-Layer<T>::Layer(const size_t& n_nodes, const size_t& n_connections,
-                const T& state, const std::string& file) : N_nodes(n_nodes),
+std::vector<std::vector<double>> Layer::Weights() {
+  std::vector<std::vector<double>> W(N_nodes,
+                                     std::vector<double>(N_connections, 0.));
+  for (size_t n = 0; n < N_nodes; n++) {
+    int i = 0;
+    for (const auto& w: Neurons[n].Weights) W[n][i++] = w;
+  }
+  return W;
+}
+
+std::vector<double> Layer::Weights(size_t i) {return Neurons[i].Weights;}
+
+double Layer::Weights(size_t i, size_t j) {return Neurons[i].Weights[j];}
+
+void Layer::HelloWorld() {for (auto& n : Neurons) n.HelloWorld();}
+
+Layer::Layer(const size_t& n_nodes, const size_t& n_connections,
+             const std::string& file) : N_nodes(n_nodes),
   N_connections(n_connections), filename(file), LrnRate(0.9) {
+  std::cout << "Creating Layer @ " << filename << ", w/ " << N_nodes \
+            << " nodes and " << N_connections << " connections." << std::endl;
   std::filesystem::create_directories(file);
   // Create Layer file
   std::ostringstream filepath("");
@@ -102,10 +163,12 @@ Layer<T>::Layer(const size_t& n_nodes, const size_t& n_connections,
   fp.open(filepath.str());
   if (fp.is_open()) {
     fp << "# Type           double" << std::endl \
+       << "# LrnRate        0.1" << std::endl \
+       << "# Bias           10." << std::endl \
        << "# N_connections  " << N_connections << std::endl;
     fp.close();
   } else std::cerr << "Failed to open file : " << filepath.str() << std::endl;
-  Neurons.resize(N_nodes, neuron<T>(filepath.str()));
+  Neurons.resize(N_nodes, neuron(filepath.str()));
   // Create Weights file
   filepath.str("");
   filepath << file << "/W.dat";
@@ -113,40 +176,55 @@ Layer<T>::Layer(const size_t& n_nodes, const size_t& n_connections,
   printMtx(filepath.str(), N_nodes, N_connections, this->Weights());
 }
 
-template<typename T>
-void Layer<T>::HelloWorld() {for (neuron<T>& n : Neurons) n.HelloWorld();}
-
-template<typename T>
-std::vector<std::vector<double>> Layer<T>::Weights() {
-  std::vector<std::vector<double>> W(N_nodes);
-  for (size_t n = 0; n < N_nodes; n++) {
-    int i = 0;
-    for (const auto& w: Neurons[n].Weights) {
-      W[n][i] = w;
-      i++;
-    }
-  }
-  return W;
+std::vector<double> Layer::forward(std::vector<double> input) {
+  std::vector<double> v(N_nodes);
+  for (size_t i = 0; i < N_nodes; i++) v[i] = Neurons[i].forward(input);
+  return v;
 }
 
-template<typename T>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int MAX_LAYERS = 100;
+
 class Brain {
 public:
   size_t l;
   double flopRate;
-  std::vector<Layer<T>> Layers;
+  std::vector<Layer> Layers;
   std::string filename;
-  Brain(const double& fR, const std::string& file, const T& state);
+  Brain(double fR, std::string file);
   ~Brain() {};
   void HelloWorld();
-  void forward(std::vector<T> input); // Changed return type to void
+  std::vector<double> forward(std::vector<double> X);
+  void backPropagate(const std::vector<double>& X,
+                     const std::vector<double>& Y);
+  void train(const std::vector<std::vector<double>>& train_inputs,
+             const std::vector<std::vector<double>>& train_outputs,
+             int epochs);
 };
-
 // Definitions for Brain class methods
-template<typename T>
-Brain<T>::Brain(const double& fR, const std::string& file, const T& state) : \
+Brain::Brain(double fR, std::string file) : \
   flopRate(fR), \
   filename(std::filesystem::path(file).replace_filename("Brain/")) {
+  std::cout << "Creating Brain from " << filename << std::endl;
   std::filesystem::create_directories(filename);
   std::ifstream fr(file);
   if (!fr.is_open()) {
@@ -159,36 +237,23 @@ Brain<T>::Brain(const double& fR, const std::string& file, const T& state) : \
   // Read Parameters by parsing with RegEx
   while (std::getline(fr, line)) params = paramMap(line, params);
   fr.close();
-  l = std::atoi(params["L"].c_str()) - 1;
+  l = std::atoi(params["L"].c_str());
   std::vector<int> L(l, 0);
   param2vec(params["Layers"], L, l);
   if (l + 1 <= MAX_LAYERS) {
-    // Input Layer
-    size_t layer = 0;
-    std::ostringstream filepath;
-    filepath.str("");
-    filepath << filename << std::setfill('0') \
-             << std::setw(static_cast<int>(log10(MAX_LAYERS))) << layer;
-    Layers.push_back(Layer<T>(L[layer], 1, state, filepath.str()));
-    // Intermediate layers
-    for (++layer; layer <= l - 1; layer++) {
-      filepath.str("");
+    for (size_t layer = 0; layer < l; layer++) {
+      std::ostringstream filepath("");
       filepath << filename << std::setfill('0') \
                << std::setw(static_cast<int>(log10(MAX_LAYERS))) << layer;
-      Layers.push_back(Layer<T>(L[layer], L[layer - 1], state, filepath.str()));
+      Layers.push_back(Layer(L[layer], !(layer) ? 0 : L[layer - 1],
+                       filepath.str()));
     }
-    // Output layer
-    filepath.str("");
-    filepath << filename << std::setfill('0') \
-             << std::setw(static_cast<int>(log10(MAX_LAYERS))) << layer;
-    Layers.push_back(Layer<T>(1, L[layer - 1], state, filepath.str()));
   }
 }
 
-template<typename T>
-void Brain<T>::HelloWorld() {
+void Brain::HelloWorld() {
   size_t i = 0;
-  for (Layer<T>& L : Layers) {
+  for (auto& L : Layers) {
     std::cout << "L" << std::setfill('0') \
               << std::setw(static_cast<int>(log10(MAX_LAYERS))) << i << ": ";
     L.HelloWorld();
@@ -197,8 +262,7 @@ void Brain<T>::HelloWorld() {
   }
 }
 
-template<typename T>
-void Brain<T>::forward(std::vector<T> input) {
+std::vector<double> Brain::forward(std::vector<double> X) {
   /*
    * I ----- O
    * |       |
@@ -214,23 +278,78 @@ void Brain<T>::forward(std::vector<T> input) {
    * s(s(s(X)))
    * s(s(s(s(X))))
    */
-  std::vector<T> current_input = input;
-  // Propagate input through each layer
-  for (size_t i = 0; i < Layers.size(); ++i) {
-    std::vector<T> layer_output(Layers[i].N_nodes);
-    // Propagate input through each neuron in the layer
-    for (size_t j = 0; j < Layers[i].N_nodes; ++j) {
-      T neuron_output = 0;
-      // Calculate weighted sum of inputs
-      for (size_t k = 0; k < current_input.size(); ++k) {
-        neuron_output += current_input[k] * Layers[i].Weights[j][k];
-      }
-      // Apply activation function
-      neuron_output = sgmd(neuron_output + Layers[i].Neurons[j].Bias);
-      Layers[i].Neurons[j].Value = neuron_output;
-      layer_output[j] = neuron_output;
-    }
-    // Set current input to the output of this layer for the next layer
-    current_input = layer_output;
+  for (auto& L : Layers) {X = L.forward(X);}
+  return X;
+}
+
+void Brain::backPropagate(const std::vector<double>& X,
+                          const std::vector<double>& Y) {
+  // Forward pass to get predicted output
+  std::vector<double> predictedOutput = forward(X);
+
+  // Compute error between predicted output and actual output
+  std::vector<double> error(predictedOutput.size(), 0.);
+  for (size_t i = 0; i < predictedOutput.size(); ++i) {
+    error[i] = Y[i] - predictedOutput[i];
   }
+
+  // Backpropagation to update weights
+  for (int layerIndex = l - 1; layerIndex >= 0; --layerIndex) {
+    Layer& currentLayer = Layers[layerIndex];
+    Layer* prevLayer = (layerIndex > 0) ? &Layers[layerIndex - 1] : nullptr;
+
+    // Compute gradients for the current layer
+    std::vector<double> gradients(currentLayer.N_nodes);
+    for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
+      double neuronOutput = currentLayer.Neurons[n].Value;
+      gradients[n] = error[n] * neuronOutput * (1 - neuronOutput);
+    }
+
+    // Update weights for the current layer
+    for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
+      neuron& currentNeuron = currentLayer.Neurons[n];
+      for (size_t weightIndex = 0; weightIndex < currentNeuron.Weights.size(); ++weightIndex) {
+        double deltaWeight = (prevLayer != nullptr) ?
+                              prevLayer->Neurons[weightIndex].Value * gradients[n] :
+                              X[weightIndex] * gradients[n];
+        currentNeuron.Weights[weightIndex] += currentLayer.LrnRate * deltaWeight;
+      }
+      // Update bias
+      currentNeuron.Bias += currentLayer.LrnRate * gradients[n];
+    }
+
+    // Update error for the next layer
+    if (prevLayer != nullptr) {
+      std::vector<double> newError(prevLayer->N_nodes, 0.0);
+      for (size_t prevNeuronIndex = 0; prevNeuronIndex < prevLayer->N_nodes; ++prevNeuronIndex) {
+        for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
+          newError[prevNeuronIndex] += gradients[n] *
+                                      currentLayer.Neurons[n].Weights[prevNeuronIndex];
+        }
+      }
+      error = newError;
+    }
+  }
+}
+
+// Train the network using stochastic gradient descent
+void Brain::train(const std::vector<std::vector<double>>& train_inputs,
+                  const std::vector<std::vector<double>>& train_outputs,
+                  int epochs) {
+  for (int epoch = 0; epoch < epochs; ++epoch)
+    for (size_t i = 0; i < train_inputs.size(); ++i)
+      backPropagate(train_inputs[i], train_outputs[i]);
+}
+
+class master {
+private:
+public:
+  master(/* args */);
+  ~master();
+};
+
+master::master(/* args */) {
+}
+
+master::~master() {
 }

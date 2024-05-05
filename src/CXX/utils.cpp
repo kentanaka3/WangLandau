@@ -1,5 +1,12 @@
 #include "utils.hpp"
 
+double sgmd(double& x) {return 1./(1. + std::exp(-x));}
+double D_sgmd(double& x) {
+  double activated = sgmd(x);
+  return activated * (1 - activated);
+}
+double relu(const double x) {return (x > 0.) ? x : 0.;}
+
 std::vector<double> readVec(const std::string& filename, const int& N) {
   std::vector<double> vec(N, 0);
 	std::ifstream myFile(filename.c_str());
@@ -47,8 +54,8 @@ void printVec(const std::string& filename, std::vector<double> vec,
 	file_out.close();
 }
 
-void printMtx(const std::string& filename, const int& rows, const int& cols,
-							const std::vector<std::vector<double>>& mtx) {
+void printMtx(const std::string& filename, const size_t& rows,
+							const size_t& cols, const std::vector<std::vector<double>> mtx) {
 	std::ofstream file_out;
 	file_out.open(filename.c_str());
 	for (int i = 0; i < rows; i++) {
@@ -58,9 +65,6 @@ void printMtx(const std::string& filename, const int& rows, const int& cols,
 	file_out.close();
 }
 
-double relu(const double x) {
-	return (x >= 0.) ? x : 0.;
-}
 
 template <typename T>
 int sgn(const T& val) {

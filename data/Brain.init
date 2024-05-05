@@ -1,4 +1,4 @@
-# L           5
+# L           3
 # Type        FNN
-# Layers      20 6 5 3 1
+# Layers      2 2 1
 # flopRate    0.001

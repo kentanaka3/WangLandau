@@ -26,7 +26,7 @@ std::vector<std::vector<double>> readMtx(const std::string& filename,
 void printVec(const std::string& filename, std::vector<double> vec,
               const int& N, const int& ax);
 
-void printMtx(const std::string& filename, const int& rows, const int& cols,
+void printMtx(const std::string& filename, const size_t& rows, const size_t& cols,
 							std::vector<std::vector<double>> mtx);
 
 std::string lastLine(const std::string& filepath);

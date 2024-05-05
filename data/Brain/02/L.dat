@@ -1,3 +1,4 @@
-# LrnRate     1.
-# Value       True
-# Bias        10
+# Type           double
+# LrnRate        0.1
+# Bias           10.
+# N_connections  2
