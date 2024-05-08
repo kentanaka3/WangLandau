@@ -108,9 +108,9 @@ public:
 std::vector<std::vector<double>> Layer::Weights() {
   std::vector<std::vector<double>> W(N_nodes,
                                      std::vector<double>(N_connections, 0.));
+  #pragma omp parallel for shared(W) collapse(2)
   for (size_t n = 0; n < N_nodes; n++) {
-    int i = 0;
-    for (const auto& w: Neurons[n].Weights) W[n][i++] = w;
+    for (size_t i = 0; i < N_connections; i++) W[n][i] = this->Weights(n, i);
   }
   return W;
 }

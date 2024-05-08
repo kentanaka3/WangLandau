@@ -99,28 +99,31 @@ double meanSquaredError(const std::vector<double>& y_true,
 		std::cerr << "Error: Size mismatch between true and predicted values.\n";
 		exit(EXIT_FAILURE);
 	}
-	double sumSquaredError = 0.;
-	#pragma omp parallel for reduction(+:sumSquaredError)
+	double total = 0.;
+	#pragma omp parallel for reduction(+:total)
 	for (size_t i = 0; i < y_true.size(); ++i) {
 		double error = y_true[i] - y_pred[i];
-		sumSquaredError += error * error;
+		total += error * error;
 	}
-	return sumSquaredError / static_cast<double>(y_true.size());
+	return total / static_cast<double>(y_true.size());
 }
 
 double binaryCrossEntropy(const std::vector<double>& y_true,
 													const std::vector<double>& y_pred) {
-	if (y_true.size() != y_pred.size()) {
-		std::cerr << "Error: Size mismatch between true and predicted values.\n";
-		exit(EXIT_FAILURE);
-	}
-	double sumCrossEntropy = 0.;
-	#pragma omp parallel for reduction(+:sumCrossEntropy)
-	for (size_t i = 0; i < y_true.size(); ++i) {
-		sumCrossEntropy += y_true[i] * std::log(y_pred[i]) \
-											+ (1 - y_true[i]) * std::log(1 - y_pred[i]);
-	}
-	return -sumCrossEntropy / static_cast<double>(y_true.size());
+	double total = 0.;
+	#pragma omp parallel for reduction(+:total)
+	for (int i = 0; i < y_true.size(); i++)
+		total += y_true[i] * log(y_pred[i]) + (1 - y_true[i]) * log(1 - y_pred[i]);
+	return -total / y_true.size();
+}
+
+double crossEntropy(const std::vector<double>& y_true,
+											const std::vector<double>& y_pred) {
+	double total = 0.;
+	#pragma omp parallel for reduction(+:total)
+	for (int i = 0; i < y_true.size(); i++)
+		total += y_true[i] * log(y_pred[i]);
+	return -total / y_true.size();
 }
 
 std::vector<double> readVec(const std::string& filename, const int& N) {
@@ -256,6 +259,7 @@ void set_act(const int& actnum,
 			std::cerr << "CRITICAL: INVALID ACTIVATION FUNCTION" << std::endl;
 			exit(EXIT_FAILURE);
 	}
+	std::cout << std::endl;
 }
 void set_act(const int& actnum,
 						 std::vector<double> (**act) (const std::vector<double>,
@@ -278,6 +282,7 @@ void set_act(const int& actnum,
 			std::cerr << "CRITICAL: INVALID ACTIVATION FUNCTION" << std::endl;
 			exit(EXIT_FAILURE);
 	}
+	std::cout << std::endl;
 }
 std::string lastLine(const std::string& filepath) {
 	std::ifstream fin;

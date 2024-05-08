@@ -7,7 +7,7 @@ openmp:
 	cmake -S . -B build -DUSE_OMP=ON
 
 test: veryclean 
-	cmake -S . -B build -DTEST=ON -DUSE_OMP=ON && cmake --build build/ && ./build/test_utils; ./build/test_WL; ./build/Brain.x data/Brain.init
+	cmake -S . -B build -DTEST=ON -DUSE_OMP=ON && cmake --build build/ && ./build/test_utils; ./build/test_WL
 
 run_test:
 	./test_utils.x

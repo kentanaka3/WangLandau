@@ -4,7 +4,7 @@
 
 TEST(TestFNN, Init) {
   std::string filename, network;
-  filename = "test/data/FFNN/model.inp";
+  filename = "test/data/FNN/model.inp";
   WL * myWL = set_problem(MLP_STR, filename);
   // Parameters
   ASSERT_EQ(myWL->min_MCS, 200);
