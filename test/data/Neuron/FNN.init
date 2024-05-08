@@ -1,0 +1,4 @@
+# N_layers    3
+# Type        FNN
+# Layers      2 2 1
+# flopRate    0.001

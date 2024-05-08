@@ -21,7 +21,7 @@ TEST(TestMatrix, doubles) {
 
 TEST(TestActFun, Tanh) {
   double (*act_fun) (const double); // activation function
-  double (*D_act) (const double); // derivative of activation function
+  double (*D_act) (const double); // derivative
   set_act(0, &act_fun, &D_act);
   ASSERT_DOUBLE_EQ(act_fun(-1), -0.76159415595576485);
   ASSERT_DOUBLE_EQ(act_fun(0), 0);
@@ -30,7 +30,7 @@ TEST(TestActFun, Tanh) {
 
 TEST(TestActFun, TanhVec) {
   std::vector<double> (*act_fun) (const std::vector<double>); // activation function
-  std::vector<double> (*D_act) (const std::vector<double>); // derivative of activation function
+  std::vector<double> (*D_act) (const std::vector<double>); // derivative
   set_act(1, &act_fun, &D_act);
   std::vector<double> x = {1, 2, 3};
   std::vector<double> y = act_fun(x);
@@ -41,7 +41,7 @@ TEST(TestActFun, TanhVec) {
 
 TEST(TestActFun, ReLU) {
   double (*act_fun) (const double); // activation function
-  double (*D_act) (const double); // derivative of activation function
+  double (*D_act) (const double); // derivative
   set_act(1, &act_fun, &D_act);
   ASSERT_DOUBLE_EQ(act_fun(-1), 0);
   ASSERT_DOUBLE_EQ(act_fun(0), 0);
@@ -50,7 +50,7 @@ TEST(TestActFun, ReLU) {
 
 TEST(TestActFun, ReLUVec) {
   std::vector<double> (*act_fun) (const std::vector<double>); // activation function
-  std::vector<double> (*D_act) (const std::vector<double>); // derivative of activation function
+  std::vector<double> (*D_act) (const std::vector<double>); // derivative
   set_act(1, &act_fun, &D_act);
   std::vector<double> x = {1, 2, 3};
   std::vector<double> y = act_fun(x);
@@ -61,7 +61,7 @@ TEST(TestActFun, ReLUVec) {
 
 TEST(TestActFun, Sigmoid) {
   double (*act_fun) (const double); // activation function
-  double (*D_act) (const double); // derivative of activation function
+  double (*D_act) (const double); // derivative
   set_act(2, &act_fun, &D_act);
   ASSERT_DOUBLE_EQ(act_fun(-1), 0.2689414213699951);
   ASSERT_DOUBLE_EQ(act_fun(0), 0.5);
@@ -70,7 +70,7 @@ TEST(TestActFun, Sigmoid) {
 
 TEST(TestActFun, SigmoidVec) {
   std::vector<double> (*act_fun) (const std::vector<double>); // activation function
-  std::vector<double> (*D_act) (const std::vector<double>); // derivative of activation function
+  std::vector<double> (*D_act) (const std::vector<double>); // derivative
   set_act(2, &act_fun, &D_act);
   std::vector<double> x = {1, 2, 3};
   std::vector<double> y = act_fun(x);
@@ -81,7 +81,7 @@ TEST(TestActFun, SigmoidVec) {
 
 TEST(TestActFun, LeakyReLU) {
   double (*act_fun) (const double, const double); // activation function
-  double (*D_act) (const double, const double); // derivative of activation function
+  double (*D_act) (const double, const double); // derivative
   set_act(3, &act_fun, &D_act, 0.01);
   ASSERT_DOUBLE_EQ(act_fun(-1, 0.01), -0.01);
   ASSERT_DOUBLE_EQ(act_fun(0, 0.01), 0);
@@ -90,7 +90,7 @@ TEST(TestActFun, LeakyReLU) {
 
 TEST(TestActFun, LeakyReLUVec) {
   std::vector<double> (*act_fun) (const std::vector<double>, const double); // activation function
-  std::vector<double> (*D_act) (const std::vector<double>, const double); // derivative of activation function
+  std::vector<double> (*D_act) (const std::vector<double>, const double); // derivative
   set_act(3, &act_fun, &D_act, 0.01);
   std::vector<double> x = {1, 2, 3};
   std::vector<double> y = act_fun(x, 0.01);
@@ -103,13 +103,37 @@ TEST(TestActFun, Softmax) {
   std::vector<double> (*act_fun) (const std::vector<double>,
                                   const double); // activation function
   std::vector<double> (*D_act) (const std::vector<double>,
-                                const double); // derivative of activation function
+                                const double); // derivative
   set_act(4, &act_fun, &D_act, 1);
   std::vector<double> x = {1, 2, 3};
   std::vector<double> y = act_fun(x, 1);
   ASSERT_DOUBLE_EQ(y[0], 0.09003057317038046);
   ASSERT_DOUBLE_EQ(y[1], 0.24472847105479767);
   ASSERT_DOUBLE_EQ(y[2], 0.6652409557748219);
+}
+
+TEST(TestLossFun, MSE) {
+  std::vector<double> y_true = {1, 2, 3};
+  std::vector<double> y_pred = {1, 2, 3};
+  ASSERT_DOUBLE_EQ(meanSquaredError(y_true, y_pred), 0);
+  y_pred = {1, 2, 4};
+  ASSERT_DOUBLE_EQ(meanSquaredError(y_true, y_pred), 1./3);
+  y_pred = {1, 3, 3};
+  ASSERT_DOUBLE_EQ(meanSquaredError(y_true, y_pred), 1./3);
+  y_pred = {2, 2, 3};
+  ASSERT_DOUBLE_EQ(meanSquaredError(y_true, y_pred), 1./3);
+}
+
+TEST(TestLossFun, BCE) {
+  std::vector<double> y_true = {1, 0, 1};
+  std::vector<double> y_pred = {1, 0, 1};
+  ASSERT_DOUBLE_EQ(binaryCrossEntropy(y_true, y_pred), 0);
+  y_pred = {1, 0, 0};
+  ASSERT_DOUBLE_EQ(binaryCrossEntropy(y_true, y_pred), 0.6931471805599453);
+  y_pred = {0, 0, 1};
+  ASSERT_DOUBLE_EQ(binaryCrossEntropy(y_true, y_pred), 0.6931471805599453);
+  y_pred = {0, 1, 1};
+  ASSERT_DOUBLE_EQ(binaryCrossEntropy(y_true, y_pred), 0.6931471805599453);
 }
 
 TEST(TestParams, ReadParam) {

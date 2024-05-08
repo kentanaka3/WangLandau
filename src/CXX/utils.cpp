@@ -97,14 +97,30 @@ double meanSquaredError(const std::vector<double>& y_true,
 												const std::vector<double>& y_pred) {
 	if (y_true.size() != y_pred.size()) {
 		std::cerr << "Error: Size mismatch between true and predicted values.\n";
-		return -1; // Return error code
+		exit(EXIT_FAILURE);
 	}
-	double sumSquaredError = 0.0;
+	double sumSquaredError = 0.;
+	#pragma omp parallel for reduction(+:sumSquaredError)
 	for (size_t i = 0; i < y_true.size(); ++i) {
 		double error = y_true[i] - y_pred[i];
 		sumSquaredError += error * error;
 	}
 	return sumSquaredError / static_cast<double>(y_true.size());
+}
+
+double binaryCrossEntropy(const std::vector<double>& y_true,
+													const std::vector<double>& y_pred) {
+	if (y_true.size() != y_pred.size()) {
+		std::cerr << "Error: Size mismatch between true and predicted values.\n";
+		exit(EXIT_FAILURE);
+	}
+	double sumCrossEntropy = 0.;
+	#pragma omp parallel for reduction(+:sumCrossEntropy)
+	for (size_t i = 0; i < y_true.size(); ++i) {
+		sumCrossEntropy += y_true[i] * std::log(y_pred[i]) \
+											+ (1 - y_true[i]) * std::log(1 - y_pred[i]);
+	}
+	return -sumCrossEntropy / static_cast<double>(y_true.size());
 }
 
 std::vector<double> readVec(const std::string& filename, const int& N) {
@@ -119,6 +135,7 @@ std::vector<double> readVec(const std::string& filename, const int& N) {
 		myFile.close();
 	} else {
 		std::cerr << "CRITICAL: " << filename << " does not exist" << std::endl;
+		exit(EXIT_FAILURE);
 	}
 	return vec;
 }
@@ -137,6 +154,7 @@ std::vector<std::vector<double>> readMtx(const std::string& filename,
 		myFile.close();
 	} else {
 		std::cerr << "CRITICAL: " << filename << " does not exist" << std::endl;
+		exit(EXIT_FAILURE);
 	}
 	return mtx;
 }
@@ -309,7 +327,7 @@ std::map<std::string, std::string> paramMap(const std::string line,
 		if (it != params.end()) {
 			params[matches[1]] = matches[std::stoi(params[matches[1]])];
 		} else {
-			#if DEBUG_UTIL >= 1
+			#if DEBUG>= 1
 			std::cout << "WARNING: Parameter in: \"" << line << "\" NOT set." \
 								<< std::endl;
 			#endif
@@ -343,8 +361,17 @@ void param2vec(const std::string& param, std::vector<double>& vec,
 	}
 }
 
-int argMax(std::vector<double> vec, int length) {
+size_t argMax(const std::vector<double> vec) {
 	int i_max = 0;
-	for (int i = 0; i < length; i++) if (vec[i] > vec[i_max]) i_max = i;
+	#pragma omp parallel for reduction(max:i_max)
+	for (size_t i = 1; i < vec.size(); i++)
+		i_max = (vec[i] > vec[i_max]) ? i : i_max;
+	return i_max;
+}
+size_t argMax(const std::vector<double> vec, const size_t& N) {
+	int i_max = 0;
+	#pragma omp parallel for reduction(max:i_max)
+	for (size_t i = 1; i < N; i++)
+		i_max = (vec[i] > vec[i_max]) ? i : i_max;
 	return i_max;
 }

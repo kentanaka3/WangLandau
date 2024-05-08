@@ -48,6 +48,9 @@ int sgn(const T& val);
 double meanSquaredError(const std::vector<double>& y_true,
 												const std::vector<double>& y_pred);
 
+double binaryCrossEntropy(const std::vector<double>& y_true,
+													const std::vector<double>& y_pred);
+
 std::vector<double> readVec(const std::string& filename, const int& N);
 
 std::vector<std::vector<double>> readMtx(const std::string& filename,
@@ -80,4 +83,5 @@ void param2vec(const std::string& param, std::vector<int>& vec, const int& N);
 void param2vec(const std::string& param, std::vector<double>& vec,
 							 const int& N);
 
-int argMax(std::vector<double> vec, int length);
+size_t argMax(const std::vector<double> vec);
+size_t argMax(const std::vector<double> vec, const size_t& N);

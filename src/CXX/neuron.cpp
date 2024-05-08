@@ -35,7 +35,7 @@
  *
  */
 int main(int argc, char *argv[]) {
-  Brain myBrain(1e-1, argv[1]);
+  Brain myBrain(argv[1]);
   myBrain.HelloWorld();
   std::vector<double> input(20, 0.5);
   for (auto& o : myBrain.forward(input)) {std::cout << o << std::endl;}

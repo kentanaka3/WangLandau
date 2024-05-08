@@ -4,20 +4,6 @@
 #include <filesystem>
 #include <random>
 
-double binaryCrossEntropy(const std::vector<double>& y_true,
-													const std::vector<double>& y_pred) {
-	if (y_true.size() != y_pred.size()) {
-		std::cerr << "Error: Size mismatch between true and predicted values.\n";
-		return -1; // Return error code
-	}
-	double sumCrossEntropy = 0.0;
-	for (size_t i = 0; i < y_true.size(); ++i) {
-		sumCrossEntropy += y_true[i] * std::log(y_pred[i]) \
-											+ (1 - y_true[i]) * std::log(1 - y_pred[i]);
-	}
-	return -sumCrossEntropy / static_cast<double>(y_true.size());
-}
-
 const std::complex<double> INIT_STATE_CMPLX = 1.;
 const bool INIT_STATE_ISING = true;
 const size_t INIT_STATE_POTTS = 0;
@@ -191,11 +177,12 @@ int MAX_LAYERS = 100;
 
 class Brain {
 public:
-  size_t N_Layers;
+  size_t N_layers;
   double flopRate;
   std::vector<Layer> Layers;
   std::string filename;
-  Brain(double fR, std::string file);
+  std::string Type;
+  Brain(std::string file);
   ~Brain() {};
   void HelloWorld();
   std::vector<double> forward(std::vector<double> X);
@@ -206,8 +193,7 @@ public:
              int epochs);
 };
 // Definitions for Brain class methods
-Brain::Brain(double fR, std::string file) : \
-  flopRate(fR), \
+Brain::Brain(std::string file) : \
   filename(std::filesystem::path(file).replace_filename("Brain/")) {
   std::cout << "Creating Brain from " << filename << std::endl;
   std::filesystem::create_directories(filename);
@@ -216,17 +202,19 @@ Brain::Brain(double fR, std::string file) : \
     std::cerr << "Error: Unable to init file " << file << "\n";
   }
   std::map<std::string, std::string> params;
-  params["N_Layers"] = "4";
+  params["N_layers"] = "4";
+  params["Type"] = "6";
   params["Layers"] = "6";
+  params["flopRate"] = "3";
   std::string line;
   // Read Parameters by parsing with RegEx
   while (std::getline(fr, line)) params = paramMap(line, params);
   fr.close();
-  N_Layers = std::atoi(params["N_Layers"].c_str());
-  std::vector<int> L(N_Layers, 0);
-  param2vec(params["Layers"], L, N_Layers);
-  if (N_Layers + 1 <= MAX_LAYERS) {
-    for (size_t layer = 0; layer < N_Layers; layer++) {
+  N_layers = std::atoi(params["N_layers"].c_str());
+  std::vector<int> L(N_layers, 0);
+  param2vec(params["Layers"], L, N_layers);
+  if (N_layers + 1 <= MAX_LAYERS) {
+    for (size_t layer = 0; layer < N_layers; layer++) {
       std::ostringstream filepath("");
       filepath << filename << std::setfill('0') \
                << std::setw(static_cast<int>(log10(MAX_LAYERS))) << layer;
@@ -279,7 +267,7 @@ void Brain::backPropagate(const std::vector<double>& X,
     error[i] = Y[i] - prediction[i];
 
   // Backpropagation to update weights
-  for (size_t layer = N_Layers - 1; layer >= 0; --layer) {
+  for (size_t layer = N_layers - 1; layer >= 0; --layer) {
     Layer& currentLayer = Layers[layer];
     Layer* prevLayer = (layer > 0) ? &Layers[layer - 1] : nullptr;
 
