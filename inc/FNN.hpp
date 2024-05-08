@@ -37,10 +37,14 @@ public:
   std::vector<std::vector<int>> nodeLedger;
 
   // Activation Function
-  double (*act) (double);
+  double (*act) (const double);
+  double (*D_act) (const double);
   // ID for Activation Function
   //  0 = Tanh
   //  1 = ReLU
+  //  2 = Sigmoid
+  //  3 = Leaky ReLU
+  //  4 = Softmax (Vectorized)
   int actID = 0;
 
   std::vector<std::vector<int>> tosamples;

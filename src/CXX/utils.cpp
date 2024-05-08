@@ -1,11 +1,111 @@
 #include "utils.hpp"
 
-double sgmd(double& x) {return 1./(1. + std::exp(-x));}
-double D_sgmd(double& x) {
-  double activated = sgmd(x);
-  return activated * (1 - activated);
+std::vector<double> tanh(const std::vector<double> x) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = std::tanh(x[i]);
+	return output;
+}
+double D_tanh(const double x) {
+	double activated = tanh(x);
+	return 1. - activated * activated;	// 1 - tanh^2(x)
+}
+std::vector<double> D_tanh(const std::vector<double> x) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = D_tanh(x[i]);
+	return output;
+}
+double sigmoid(const double x) {return 1./(1. + std::exp(-x));}
+std::vector<double> sigmoid(const std::vector<double> x) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = sigmoid(x[i]);
+	return output;
+}
+double D_sigmoid(const double x) {
+  double activated = sigmoid(x);
+  return activated * (1 - activated); // sigmoid(x) * (1 - sigmoid(x))
+}
+std::vector<double> D_sigmoid(const std::vector<double> x) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = D_sigmoid(x[i]);
+	return output;
 }
 double relu(const double x) {return (x > 0.) ? x : 0.;}
+std::vector<double> relu(const std::vector<double> x) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = relu(x[i]);
+	return output;
+}
+double D_relu(const double x) {return (x > 0.) ? 1. : 0.;}
+std::vector<double> D_relu(const std::vector<double> x) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = D_relu(x[i]);
+	return output;
+}
+std::vector<double> softmax(const std::vector<double> x, const double temp) {
+	std::vector<double> output(x.size(), 0.);
+	double max_val = *std::max_element(x.begin(), x.end());
+	double sum = 0;
+	for (int i = 0; i < x.size(); i++) {
+		output[i] = std::exp((x[i] - max_val) / temp);
+		sum += output[i];
+	}
+	// Normalize
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] /= sum;
+	return output;
+}
+std::vector<double> D_softmax(const std::vector<double> x,
+															const double temp) {
+	std::vector<double> output(x.size(), 0.);
+	std::vector<double> softmax_x = softmax(x, temp);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = softmax_x[i] * (1. - softmax_x[i]);
+	return output;
+}
+
+double leaky_relu(const double x, const double y) {
+	return x > 0 ? x : y * x;
+}
+std::vector<double> leaky_relu(const std::vector<double> x, const double y) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = leaky_relu(x[i], y);
+	return output;
+}
+double D_leaky_relu(const double x, const double y) {
+	return x > 0 ? 1 : y;
+}
+std::vector<double> D_leaky_relu(const std::vector<double> x, const double y) {
+	std::vector<double> output(x.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < x.size(); i++) output[i] = D_leaky_relu(x[i], y);
+	return output;
+}
+
+template <typename T>
+int sgn(const T& val) {
+	return (T(0) < val) - (val <= T(0));
+}
+
+double meanSquaredError(const std::vector<double>& y_true,
+												const std::vector<double>& y_pred) {
+	if (y_true.size() != y_pred.size()) {
+		std::cerr << "Error: Size mismatch between true and predicted values.\n";
+		return -1; // Return error code
+	}
+	double sumSquaredError = 0.0;
+	for (size_t i = 0; i < y_true.size(); ++i) {
+		double error = y_true[i] - y_pred[i];
+		sumSquaredError += error * error;
+	}
+	return sumSquaredError / static_cast<double>(y_true.size());
+}
 
 std::vector<double> readVec(const std::string& filename, const int& N) {
   std::vector<double> vec(N, 0);
@@ -65,48 +165,122 @@ void printMtx(const std::string& filename, const size_t& rows,
 	file_out.close();
 }
 
-
-template <typename T>
-int sgn(const T& val) {
-	return (T(0) < val) - (val <= T(0));
-}
-
-void set_act(const int& actnum, double (**act) (double)) {
+void set_act(const int& actnum, double (**act) (const double),
+						 double (**D_act) (const double)) {
 	std::cout << "Activation Function: ";
-  switch (actnum) {
-    case 0:
+	switch (actnum) {
+		case 0:
 			*act = &tanh;
+			*D_act = &D_tanh;
 			std::cout << "tanh";
 			break;
-    case 1:
+		case 1:
 			*act = &relu;
+			*D_act = &D_relu;
 			std::cout << "relu";
 			break;
-    default:
+		case 2:
+			*act = &sigmoid;
+			*D_act = &D_sigmoid;
+			std::cout << "sigmoid";
+			break;
+		case 3:
+			std::cerr << "CRITICAL: Missing parameter for leaky_relu" << std::endl;
+			exit(EXIT_FAILURE);
+		default:
 			std::cerr << "CRITICAL: INVALID ACTIVATION FUNCTION" << std::endl;
 			exit(EXIT_FAILURE);
-  }
+	}
 	std::cout << std::endl;
 }
-
+void set_act(const int& actnum, double (**act) (const double, const double),
+						 double (**D_act) (const double, const double), const double& y) {
+	std::cout << "Activation Function: ";
+	switch (actnum) {
+		case 3:
+			*act = &leaky_relu;
+			*D_act = &D_leaky_relu;
+			std::cout << "leaky_relu";
+			break;
+		default:
+			std::cerr << "CRITICAL: INVALID ACTIVATION FUNCTION" << std::endl;
+			exit(EXIT_FAILURE);
+	}
+	std::cout << std::endl;
+}
+void set_act(const int& actnum,
+						 std::vector<double> (**act) (const std::vector<double>),
+						 std::vector<double> (**D_act) (const std::vector<double>)) {
+	std::cout << "Activation Function: ";
+	switch (actnum) {
+		case 0:
+			*act = &tanh;
+			*D_act = &D_tanh;
+			std::cout << "tanh";
+			break;
+		case 1:
+			*act = &relu;
+			*D_act = &D_relu;
+			std::cout << "relu";
+			break;
+		case 2:
+			*act = &sigmoid;
+			*D_act = &D_sigmoid;
+			std::cout << "sigmoid";
+			break;
+		case 3:
+			std::cerr << "CRITICAL: Missing parameter for leaky_relu" << std::endl;
+			exit(EXIT_FAILURE);
+		case 4:
+			std::cerr << "CRITICAL: Missing parameter for softmax" << std::endl;
+			exit(EXIT_FAILURE);
+		default:
+			std::cerr << "CRITICAL: INVALID ACTIVATION FUNCTION" << std::endl;
+			exit(EXIT_FAILURE);
+	}
+}
+void set_act(const int& actnum,
+						 std::vector<double> (**act) (const std::vector<double>,
+						 															const double),
+						 std::vector<double> (**D_act) (const std::vector<double>,
+						 																const double), const double& y) {
+	std::cout << "Activation Function: ";
+	switch (actnum) {
+		case 3:
+			*act = &leaky_relu;
+			*D_act = &D_leaky_relu;
+			std::cout << "leaky_relu";
+			break;
+		case 4:
+			*act = &softmax;
+			*D_act = &D_softmax;
+			std::cout << "softmax";
+			break;
+		default:
+			std::cerr << "CRITICAL: INVALID ACTIVATION FUNCTION" << std::endl;
+			exit(EXIT_FAILURE);
+	}
+}
 std::string lastLine(const std::string& filepath) {
 	std::ifstream fin;
   fin.open(filepath);
 	std::string line;
 	if (fin.is_open()) {
-    fin.seekg(-1, std::ios_base::end);                // go to one spot before the EOF
+    fin.seekg(-1, std::ios_base::end);			// go to one spot before the EOF
 		bool keepLooping = true;
     while(keepLooping) {
 			char ch;
-			fin.get(ch);                            // Get current byte's data
+			fin.get(ch);                // Get current byte's data
 
-			if ((int)fin.tellg() <= 1) {             // If the data was at or before the 0th byte
+			if ((int)fin.tellg() <= 1) {// If the data was at or before the 0th byte
 				fin.seekg(0);                       // The first line is the last line
 				keepLooping = false;                // So stop there
 			} else if(ch == '\n') {                   // If the data was a newline
 				keepLooping = false;                // Stop at the current position.
 			} else {                                  // If the data was neither a newline nor at the 0 byte
-				fin.seekg(-2, std::ios_base::cur);        // Move to the front of that data, then to the front of the data before it
+				fin.seekg(-2, std::ios_base::cur);	// Move to the front of that data,
+																						// then to the front of the data
+																						// before it
 			}
 		}
 		getline(fin, line);

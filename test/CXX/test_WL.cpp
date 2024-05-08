@@ -2,7 +2,7 @@
 
 #include "main.hpp"
 
-TEST(TestFFNN, Init) {
+TEST(TestFNN, Init) {
   std::string filename, network;
   filename = "test/data/FFNN/model.inp";
   WL * myWL = set_problem(MLP_STR, filename);
@@ -16,7 +16,7 @@ TEST(TestFFNN, Init) {
   ASSERT_EQ(myWL->prob_single, 1.);
   ASSERT_EQ(myWL->explorable[0], 0);
   ASSERT_EQ(myWL->explorable[1], 22);
-  ASSERT_EQ(myWL->filepath, "test/data/FFNN/");
+  ASSERT_EQ(myWL->filepath, "test/data/FNN/");
   /*
   // Configuration
   ASSERT_EQ(myWL->N_inputs, 22);

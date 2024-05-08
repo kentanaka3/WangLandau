@@ -1,6 +1,6 @@
 #include "utils.hpp"
 
-#include "FFNN.hpp"
+#include "FNN.hpp"
 
 WL * set_problem(const std::string& network, const std::string& filename) {
   if (network == MLP_STR) {

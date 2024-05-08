@@ -1,4 +1,4 @@
-#include "FFNN.hpp"
+#include "FNN.hpp"
 
 MLP::MLP(const std::string& file) {
   filepath = std::filesystem::path(file).remove_filename().string();
@@ -60,7 +60,7 @@ MLP::MLP(const std::string& file) {
     nodeState[l].resize(N_units[l + 1], true);
 	}
 	// Set activation Function
-  set_act(actID, &act);
+  set_act(actID, &act, &D_act);
 }
 
 double MLP::compEnergy() {

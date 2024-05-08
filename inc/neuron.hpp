@@ -3,21 +3,6 @@
 #include <complex>
 #include <filesystem>
 #include <random>
-#include <omp.h>
-
-double meanSquaredError(const std::vector<double>& y_true,
-												const std::vector<double>& y_pred) {
-	if (y_true.size() != y_pred.size()) {
-		std::cerr << "Error: Size mismatch between true and predicted values.\n";
-		return -1; // Return error code
-	}
-	double sumSquaredError = 0.0;
-	for (size_t i = 0; i < y_true.size(); ++i) {
-		double error = y_true[i] - y_pred[i];
-		sumSquaredError += error * error;
-	}
-	return sumSquaredError / static_cast<double>(y_true.size());
-}
 
 double binaryCrossEntropy(const std::vector<double>& y_true,
 													const std::vector<double>& y_pred) {
@@ -33,12 +18,12 @@ double binaryCrossEntropy(const std::vector<double>& y_true,
 	return -sumCrossEntropy / static_cast<double>(y_true.size());
 }
 
-std::complex<double> INIT_STATE_CMPLX = 1.;
-bool INIT_STATE_ISING = true;
-size_t INIT_STATE_POTTS = 0;
-double INIT_STATE_SIGMA = 1.;
-std::ostringstream DATA_PATH{"data/"};
-unsigned int MARKOVIANITY = 0;
+const std::complex<double> INIT_STATE_CMPLX = 1.;
+const bool INIT_STATE_ISING = true;
+const size_t INIT_STATE_POTTS = 0;
+const double INIT_STATE_SIGMA = 1.;
+const std::ostringstream DATA_PATH{"data/"};
+const unsigned int MARKOVIANITY = 0;
 
 std::random_device rndm;
 std::mt19937_64 gen(rndm());
@@ -127,7 +112,7 @@ public:
   std::vector<double> Weights(size_t i);
   double Weights(size_t i, size_t j);
   void HelloWorld();
-  std::vector<double> forward(std::vector<double> input);
+  std::vector<double> forward(const std::vector<double>& input);
   Layer(const size_t& n_nodes, const size_t& n_connections,
         const std::string& file);
   ~Layer() {};
@@ -176,7 +161,7 @@ Layer::Layer(const size_t& n_nodes, const size_t& n_connections,
   printMtx(filepath.str(), N_nodes, N_connections, this->Weights());
 }
 
-std::vector<double> Layer::forward(std::vector<double> input) {
+std::vector<double> Layer::forward(const std::vector<double>& input) {
   std::vector<double> v(N_nodes);
   for (size_t i = 0; i < N_nodes; i++) v[i] = Neurons[i].forward(input);
   return v;
@@ -206,7 +191,7 @@ int MAX_LAYERS = 100;
 
 class Brain {
 public:
-  size_t l;
+  size_t N_Layers;
   double flopRate;
   std::vector<Layer> Layers;
   std::string filename;
@@ -231,17 +216,17 @@ Brain::Brain(double fR, std::string file) : \
     std::cerr << "Error: Unable to init file " << file << "\n";
   }
   std::map<std::string, std::string> params;
-  params["L"] = "4";
+  params["N_Layers"] = "4";
   params["Layers"] = "6";
   std::string line;
   // Read Parameters by parsing with RegEx
   while (std::getline(fr, line)) params = paramMap(line, params);
   fr.close();
-  l = std::atoi(params["L"].c_str());
-  std::vector<int> L(l, 0);
-  param2vec(params["Layers"], L, l);
-  if (l + 1 <= MAX_LAYERS) {
-    for (size_t layer = 0; layer < l; layer++) {
+  N_Layers = std::atoi(params["N_Layers"].c_str());
+  std::vector<int> L(N_Layers, 0);
+  param2vec(params["Layers"], L, N_Layers);
+  if (N_Layers + 1 <= MAX_LAYERS) {
+    for (size_t layer = 0; layer < N_Layers; layer++) {
       std::ostringstream filepath("");
       filepath << filename << std::setfill('0') \
                << std::setw(static_cast<int>(log10(MAX_LAYERS))) << layer;
@@ -253,10 +238,10 @@ Brain::Brain(double fR, std::string file) : \
 
 void Brain::HelloWorld() {
   size_t i = 0;
-  for (auto& L : Layers) {
+  for (auto& layer : Layers) {
     std::cout << "L" << std::setfill('0') \
               << std::setw(static_cast<int>(log10(MAX_LAYERS))) << i << ": ";
-    L.HelloWorld();
+    layer.HelloWorld();
     std::cout << std::endl;
     i++;
   }
@@ -285,18 +270,18 @@ std::vector<double> Brain::forward(std::vector<double> X) {
 void Brain::backPropagate(const std::vector<double>& X,
                           const std::vector<double>& Y) {
   // Forward pass to get predicted output
-  std::vector<double> predictedOutput = forward(X);
+  std::vector<double> prediction = forward(X);
 
   // Compute error between predicted output and actual output
-  std::vector<double> error(predictedOutput.size(), 0.);
-  for (size_t i = 0; i < predictedOutput.size(); ++i) {
-    error[i] = Y[i] - predictedOutput[i];
-  }
+  std::vector<double> error(prediction.size(), 0.);
+  #pragma omp parallel for shared(error)
+  for (size_t i = 0; i < prediction.size(); ++i)
+    error[i] = Y[i] - prediction[i];
 
   // Backpropagation to update weights
-  for (int layerIndex = l - 1; layerIndex >= 0; --layerIndex) {
-    Layer& currentLayer = Layers[layerIndex];
-    Layer* prevLayer = (layerIndex > 0) ? &Layers[layerIndex - 1] : nullptr;
+  for (size_t layer = N_Layers - 1; layer >= 0; --layer) {
+    Layer& currentLayer = Layers[layer];
+    Layer* prevLayer = (layer > 0) ? &Layers[layer - 1] : nullptr;
 
     // Compute gradients for the current layer
     std::vector<double> gradients(currentLayer.N_nodes);
