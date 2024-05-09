@@ -84,9 +84,14 @@ void set_act(const int& actnum,
 std::map<std::string, std::string> paramMap(
 	const std::string line, std::map<std::string, std::string> params);
 
-void param2vec(const std::string& param, std::vector<int>& vec, const int& N);
+void param2vec(const std::string& param, std::vector<int>& vec,
+							 const size_t& N);
+void param2vec(const std::string& param, std::vector<int>& vec,
+							 const size_t& N, const size_t& start);
 void param2vec(const std::string& param, std::vector<double>& vec,
-							 const int& N);
+							 const size_t& N);
+void param2vec(const std::string& param, std::vector<double>& vec,
+							 const size_t& N, const size_t& start);
 
 size_t argMax(const std::vector<double> vec);
 size_t argMax(const std::vector<double> vec, const size_t& N);

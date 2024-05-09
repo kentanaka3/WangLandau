@@ -1,4 +1,3 @@
 # Type           double
-# LrnRate        0.1
-# Bias           10.
+# LrnRate        0.9
 # N_connections  2

@@ -347,26 +347,37 @@ std::map<std::string, std::string> paramMap(const std::string line,
   return params;
 }
 
-void param2vec(const std::string& param, std::vector<int>& vec, const int& N) {
+void param2vec(const std::string& param, std::vector<int>& vec,
+							 const size_t& N, const size_t& start) {
 	std::istringstream iss(param);
 	std::string line;
-	int i = 0;
+	size_t i = 0, j = 0;
 	while (std::getline(iss, line, ' ') && i < N) {
-		vec[i] = std::stoi(line);
+		if (i >= start) {
+			vec[j] = std::stod(line);
+			j++;
+		}
 		i++;
 	}
 }
+void param2vec(const std::string& param, std::vector<int>& vec,
+							 const size_t& N) {param2vec(param, vec, N, 0);}
 
 void param2vec(const std::string& param, std::vector<double>& vec,
-							 const int& N) {
+							 const size_t& N, const size_t& start) {
 	std::istringstream iss(param);
 	std::string line;
-	size_t i = 0;
+	size_t i = 0, j = 0;
 	while (std::getline(iss, line, ' ') && i < N) {
-		vec[i] = std::stod(line);
+		if (i >= start) {
+			vec[j] = std::stod(line);
+			j++;
+		}
 		i++;
 	}
 }
+void param2vec(const std::string& param, std::vector<double>& vec,
+							 const size_t& N) {param2vec(param, vec, N, 0);}
 
 size_t argMax(const std::vector<double> vec) {
 	int i_max = 0;
