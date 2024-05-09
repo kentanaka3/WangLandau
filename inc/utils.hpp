@@ -51,6 +51,9 @@ double meanSquaredError(const std::vector<double>& y_true,
 double binaryCrossEntropy(const std::vector<double>& y_true,
 													const std::vector<double>& y_pred);
 
+double crossEntropy(const std::vector<double>& y_true,
+										const std::vector<double>& y_pred);
+
 std::vector<double> readVec(const std::string& filename, const int& N);
 
 std::vector<std::vector<double>> readMtx(const std::string& filename,
@@ -58,6 +61,8 @@ std::vector<std::vector<double>> readMtx(const std::string& filename,
 
 void printVec(const std::string& filename, std::vector<double> vec,
               const int& N, const int& ax);
+void printVec(const std::string& filename, std::vector<double> vec,
+              const int& N);
 
 void printMtx(const std::string& filename, const size_t& rows,
 							const size_t& cols, std::vector<std::vector<double>> mtx);

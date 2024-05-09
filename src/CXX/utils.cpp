@@ -118,7 +118,7 @@ double binaryCrossEntropy(const std::vector<double>& y_true,
 }
 
 double crossEntropy(const std::vector<double>& y_true,
-											const std::vector<double>& y_pred) {
+										const std::vector<double>& y_pred) {
 	double total = 0.;
 	#pragma omp parallel for reduction(+:total)
 	for (int i = 0; i < y_true.size(); i++)
@@ -174,6 +174,8 @@ void printVec(const std::string& filename, std::vector<double> vec,
 	}
 	file_out.close();
 }
+void printVec(const std::string& filename, std::vector<double> vec,
+							const int& N) {printVec(filename, vec, N, 0);}
 
 void printMtx(const std::string& filename, const size_t& rows,
 							const size_t& cols, const std::vector<std::vector<double>> mtx) {

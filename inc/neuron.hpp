@@ -9,28 +9,31 @@ const bool INIT_STATE_ISING = true;
 const size_t INIT_STATE_POTTS = 0;
 const double INIT_STATE_SIGMA = 1.;
 const std::ostringstream DATA_PATH{"data/"};
-const unsigned int MARKOVIANITY = 0;
+const unsigned int MARKOVIANITY = 1;
 
 std::random_device rndm;
 std::mt19937_64 gen(rndm());
-std::uniform_int_distribution<> unf_dist(-1., 1.);
+std::uniform_real_distribution<> unf_dist(-1., 1.);
 
+/******************************************************************************
+ *
+ *                                NEURON CLASS
+ *
+ *****************************************************************************/
 class neuron {
 private:
 public:
   // Bias
   double Bias;
   // Value
-  double Value = INIT_STATE_SIGMA;
+  double Value;
   // State
-  bool State = true;
+  bool State;
   // Past Values
   std::vector<double> Past;
-  // Error
-  double Error;
   // Weights
   std::vector<double> Weights;
-  int N_connections;
+  unsigned int N_connections;
   bool train;
   neuron(const std::string& file);
   ~neuron() {};
@@ -39,17 +42,20 @@ public:
 };
 
 // Definitions for neuron class methods
-neuron::neuron(const std::string& file) : \
+neuron::neuron(const std::string& file) : State(true), train(true), \
+  Value(INIT_STATE_SIGMA), \
   Past(std::vector<double>(MARKOVIANITY, INIT_STATE_SIGMA)) {
-  std::cout << "Creating Neuron @ " << file << std::endl;
+  #if DEBUG >= 3
+  std::cout << "DEBUG(3): Creating Neuron @ " << file << std::endl;
+  #endif
   std::map<std::string, std::string> params;
   params["Type"] = "6";
   params["LrnRate"] = "2";
-  params["Bias"] = "3";
   params["N_connections"] = "4";
   std::ifstream fr(file);
   if (!fr.is_open()) {
-    std::cerr << "Error: Unable to init file " << file << "\n";
+    std::cerr << "CRITICAL: Unable to init file " << file << "\n";
+    exit(EXIT_FAILURE);
   }
   std::string line;
   // Read Parameters by parsing with RegEx
@@ -57,7 +63,9 @@ neuron::neuron(const std::string& file) : \
   fr.close();
 
   N_connections = std::atoi(params["N_connections"].c_str());
-  for (size_t i = 0; i < N_connections; i++) Weights.push_back(unf_dist(gen));
+  Weights.resize(N_connections, 0.);
+  #pragma omp parallel for shared(Weights)
+  for (size_t i = 0; i < N_connections; i++) Weights[i] = unf_dist(gen);
   Bias = unf_dist(gen);
 }
 
@@ -66,24 +74,16 @@ void neuron::HelloWorld() {std::cout << this->Value << ", ";}
 double neuron::forward(const std::vector<double>& input) {
   double sum = 0.;
   for (size_t i = 0; i < N_connections; i++) {sum += input[i] * Weights[i];}
-  return relu(sum + Bias);
+  Value = relu(sum + Bias);
+  return Value;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-int MAX_NEURONS = 1000;
-
+const unsigned int MAX_NEURONS = 1000;
+/******************************************************************************
+ *
+ *                                LAYER CLASS
+ *
+ *****************************************************************************/
 class Layer {
 private:
 public:
@@ -95,8 +95,12 @@ public:
   size_t N_connections;
   std::string filename;
   std::vector<std::vector<double>> Weights();
-  std::vector<double> Weights(size_t i);
-  double Weights(size_t i, size_t j);
+  std::vector<double> Weights(const size_t& i);
+  double Weights(const size_t& i, const size_t& j);
+  std::vector<double> Bias();
+  double Bias(const size_t& i);
+  std::vector<double> Value();
+  double Value(const size_t& i);
   void HelloWorld();
   std::vector<double> forward(const std::vector<double>& input);
   Layer(const size_t& n_nodes, const size_t& n_connections,
@@ -110,22 +114,42 @@ std::vector<std::vector<double>> Layer::Weights() {
                                      std::vector<double>(N_connections, 0.));
   #pragma omp parallel for shared(W) collapse(2)
   for (size_t n = 0; n < N_nodes; n++) {
-    for (size_t i = 0; i < N_connections; i++) W[n][i] = this->Weights(n, i);
+    for (size_t i = 0; i < N_connections; i++) W[n][i] = Weights(n, i);
   }
   return W;
 }
+std::vector<double> Layer::Weights(const size_t& i) {
+  return Neurons[i].Weights;
+}
+double Layer::Weights(const size_t& i, const size_t& j) {
+  return Neurons[i].Weights[j];
+}
 
-std::vector<double> Layer::Weights(size_t i) {return Neurons[i].Weights;}
+double Layer::Bias(const size_t& i) {return Neurons[i].Bias;}
+std::vector<double> Layer::Bias() {
+  std::vector<double> B(N_nodes, 0.);
+  #pragma omp parallel for shared(B)
+  for (size_t i = 0; i < N_nodes; i++) B[i] = Bias(i);
+  return B;
+};
 
-double Layer::Weights(size_t i, size_t j) {return Neurons[i].Weights[j];}
+std::vector<double> Layer::Value() {
+  std::vector<double> V(N_nodes, 0.);
+  #pragma omp parallel for shared(V)
+  for (size_t i = 0; i < N_nodes; i++) V[i] = Value(i);
+  return V;
+}
+double Layer::Value(const size_t& i) {return Neurons[i].Value;}
 
 void Layer::HelloWorld() {for (auto& n : Neurons) n.HelloWorld();}
 
 Layer::Layer(const size_t& n_nodes, const size_t& n_connections,
              const std::string& file) : N_nodes(n_nodes),
   N_connections(n_connections), filename(file), LrnRate(0.9) {
-  std::cout << "Creating Layer @ " << filename << ", w/ " << N_nodes \
+  #if DEBUG >= 3
+  std::cout << "DEBUG(3): Creating Layer @ " << filename << ", w/ " << N_nodes\
             << " nodes and " << N_connections << " connections." << std::endl;
+  #endif
   std::filesystem::create_directories(file);
   // Create Layer file
   std::ostringstream filepath("");
@@ -134,47 +158,37 @@ Layer::Layer(const size_t& n_nodes, const size_t& n_connections,
   fp.open(filepath.str());
   if (fp.is_open()) {
     fp << "# Type           double" << std::endl \
-       << "# LrnRate        0.1" << std::endl \
-       << "# Bias           10." << std::endl \
+       << "# LrnRate        0.9" << std::endl \
        << "# N_connections  " << N_connections << std::endl;
     fp.close();
-  } else std::cerr << "Failed to open file : " << filepath.str() << std::endl;
+  } else {
+    std::cerr << "CRITICAL: Failed to open file : " << filepath.str() \
+              << std::endl;
+    exit(EXIT_FAILURE);
+  }
   Neurons.resize(N_nodes, neuron(filepath.str()));
   // Create Weights file
   filepath.str("");
   filepath << file << "/W.dat";
-  // Print Matrix
-  printMtx(filepath.str(), N_nodes, N_connections, this->Weights());
+  printMtx(filepath.str(), N_nodes, N_connections, Weights());
+  // Create Bias file
+  filepath.str("");
+  filepath << file << "/B.dat";
+  printVec(filepath.str(), Bias(), N_nodes);
 }
 
 std::vector<double> Layer::forward(const std::vector<double>& input) {
-  std::vector<double> v(N_nodes);
+  std::vector<double> v(N_nodes, 0.);
   for (size_t i = 0; i < N_nodes; i++) v[i] = Neurons[i].forward(input);
   return v;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-int MAX_LAYERS = 100;
-
+const unsigned int MAX_LAYERS = 100;
+/******************************************************************************
+ *
+ *                                BRAIN CLASS
+ *
+ *****************************************************************************/
 class Brain {
 public:
   size_t N_layers;
@@ -195,22 +209,27 @@ public:
 // Definitions for Brain class methods
 Brain::Brain(std::string file) : \
   filename(std::filesystem::path(file).replace_filename("Brain/")) {
-  std::cout << "Creating Brain from " << filename << std::endl;
+  #if DEBUG >= 3
+  std::cout << "DEBUG(3): Creating Brain from " << filename << std::endl;
+  #endif
   std::filesystem::create_directories(filename);
   std::ifstream fr(file);
   if (!fr.is_open()) {
-    std::cerr << "Error: Unable to init file " << file << "\n";
+    std::cerr << "CRITICAL: Unable to init file " << file << "\n";
+    exit(EXIT_FAILURE);
   }
   std::map<std::string, std::string> params;
   params["N_layers"] = "4";
   params["Type"] = "6";
   params["Layers"] = "6";
-  params["flopRate"] = "3";
+  params["flopRate"] = "2";
   std::string line;
   // Read Parameters by parsing with RegEx
   while (std::getline(fr, line)) params = paramMap(line, params);
   fr.close();
+  Type = params["Type"];
   N_layers = std::atoi(params["N_layers"].c_str());
+  flopRate = std::atof(params["flopRate"].c_str());
   std::vector<int> L(N_layers, 0);
   param2vec(params["Layers"], L, N_layers);
   if (N_layers + 1 <= MAX_LAYERS) {
@@ -236,21 +255,6 @@ void Brain::HelloWorld() {
 }
 
 std::vector<double> Brain::forward(std::vector<double> X) {
-  /*
-   * I ----- O
-   * |       |
-   * |   *   |
-   * | * *   |
-   * | * * * |
-   * * * * * |
-   * * * * * *
-   * 0 1 2 3 4 -> L
-   * X | | | |
-   * s(X)| | |
-   * s(s(X)) |
-   * s(s(s(X)))
-   * s(s(s(s(X))))
-   */
   for (auto& L : Layers) {X = L.forward(X);}
   return X;
 }
