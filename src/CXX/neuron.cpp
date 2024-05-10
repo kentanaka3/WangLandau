@@ -52,9 +52,14 @@ int main(int argc, char *argv[]) {
   myBrain.train(train_inputs, train_outputs);
 
   // Test the trained network
-  std::vector<double> output = myBrain.forward(train_inputs[0]);
-  std::cout << "Input: " << train_inputs[0][0] << ", " << train_inputs[0][1] \
-            << " Output: " << output[0] << std::endl;
+  for (size_t i = 0; i < train_inputs.size(); i++) {
+    std::vector<double> output = myBrain.forward(train_inputs[i]);
+    #ifdef _MPI
+    if (MPI_GRANK == 0)
+      std::cout << "Input: " << train_inputs[i][0] << ", " \
+                << train_inputs[i][1] << " Output: " << output[0] << std::endl;
+    #endif
+  }
   #ifdef _MPI
   MPI_Finalize();
   #endif

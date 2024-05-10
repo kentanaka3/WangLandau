@@ -88,10 +88,14 @@ void param2vec(const std::string& param, std::vector<int>& vec,
 							 const size_t& N);
 void param2vec(const std::string& param, std::vector<int>& vec,
 							 const size_t& N, const size_t& start);
+void param2vec(const std::string& param, std::vector<int>& vec,
+							 const size_t& N, const size_t& start, const size_t& offset);
 void param2vec(const std::string& param, std::vector<double>& vec,
 							 const size_t& N);
 void param2vec(const std::string& param, std::vector<double>& vec,
 							 const size_t& N, const size_t& start);
+void param2vec(const std::string& param, std::vector<double>& vec,
+							 const size_t& N, const size_t& start, const size_t& offset);
 
 size_t argMax(const std::vector<double> vec);
 size_t argMax(const std::vector<double> vec, const size_t& N);

@@ -1,0 +1,37 @@
+// Backpropagation to update weights
+  for (size_t layer = N_layers - 1; layer >= 0; --layer) {
+    Layer& currentLayer = Layers[layer];
+    Layer* prevLayer = (layer > 0) ? &Layers[layer - 1] : nullptr;
+
+    // Compute gradients for the current layer
+    std::vector<double> gradients(currentLayer.N_nodes);
+    for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
+      double neuronOutput = currentLayer.Neurons[n].Value;
+      gradients[n] = error[n] * neuronOutput * (1 - neuronOutput);
+    }
+
+    // Update weights for the current layer
+    for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
+      neuron& currentNeuron = currentLayer.Neurons[n];
+      for (size_t weightIndex = 0; weightIndex < currentNeuron.Weights.size(); ++weightIndex) {
+        double deltaWeight = (prevLayer != nullptr) ?
+                              prevLayer->Neurons[weightIndex].Value * gradients[n] :
+                              X[weightIndex] * gradients[n];
+        currentNeuron.Weights[weightIndex] += currentLayer.LrnRate * deltaWeight;
+      }
+      // Update bias
+      currentNeuron.Bias += currentLayer.LrnRate * gradients[n];
+    }
+
+    // Update error for the next layer
+    if (prevLayer != nullptr) {
+      std::vector<double> newError(prevLayer->N_nodes, 0.0);
+      for (size_t prevNeuronIndex = 0; prevNeuronIndex < prevLayer->N_nodes; ++prevNeuronIndex) {
+        for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
+          newError[prevNeuronIndex] += gradients[n] *
+                                      currentLayer.Neurons[n].Weights[prevNeuronIndex];
+        }
+      }
+      error = newError;
+    }
+  }

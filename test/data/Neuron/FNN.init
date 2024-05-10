@@ -3,4 +3,4 @@
 # Layers      2 4 5 3 1
 # flopRate    0.001
 # epochs      10000
-# testit      0
+# testit      1

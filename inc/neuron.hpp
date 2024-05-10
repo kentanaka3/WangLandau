@@ -52,7 +52,8 @@ neuron::neuron(const std::string& file) : State(true), train(true), \
   Value(INIT_STATE_SIGMA), \
   Past(std::vector<double>(MARKOVIANITY, INIT_STATE_SIGMA)) {
   #if DEBUG >= 3
-  std::cout << "DEBUG(3): Creating Neuron @ " << file << std::endl;
+  if (MPI_GRANK == 0)
+    std::cout << "DEBUG(3): Creating Neuron @ " << file << std::endl;
   #endif
   std::map<std::string, std::string> params;
   params["Type"] = "6";
@@ -60,7 +61,8 @@ neuron::neuron(const std::string& file) : State(true), train(true), \
   params["N_connections"] = "4";
   std::ifstream fr(file);
   if (!fr.is_open()) {
-    std::cerr << "CRITICAL: Unable to init file " << file << "\n";
+    if (MPI_GRANK == 0)
+      std::cerr << "CRITICAL: Unable to init file " << file << "\n";
     exit(EXIT_FAILURE);
   }
   std::string line;
@@ -154,7 +156,8 @@ Layer::Layer(const size_t& n_nodes, const size_t& n_connections,
   N_connections(n_connections), filename(file), LrnRate(0.9) {
   #if DEBUG >= 3
   std::cout << "DEBUG(3): Creating Layer @ " << filename << ", w/ " << N_nodes\
-            << " nodes and " << N_connections << " connections." << std::endl;
+            << " nodes and " << N_connections << " connections in Proc " \
+            << MPI_GRANK << std::endl;
   #endif
   std::filesystem::create_directories(file);
   // Create Layer file
@@ -218,17 +221,17 @@ public:
   unsigned short backPropagate(const std::vector<double>& X,
                                const std::vector<double>& Y,
                               unsigned short& epochs);
-  unsigned short train(const std::vector<double>& train_input,
-                       const std::vector<double>& train_output,
+  unsigned short train(std::vector<double>& train_input,
+                       std::vector<double>& train_output,
                        unsigned short epochs);
-  void train(const std::vector<double>& train_input,
-             const std::vector<double>& train_output);
-  void train(const std::vector<std::vector<double>>& train_inputs,
-             const std::vector<std::vector<double>>& train_outputs);
-  void train(const std::vector<std::vector<double>>& train_inputs,
-             const std::vector<std::vector<double>>& train_outputs,
-             const std::vector<std::vector<double>>& test_inputs,
-             const std::vector<std::vector<double>>& test_outputs);
+  void train(std::vector<double>& train_input,
+             std::vector<double>& train_output);
+  void train(std::vector<std::vector<double>> train_inputs,
+             std::vector<std::vector<double>> train_outputs);
+  void train(std::vector<std::vector<double>> train_inputs,
+             std::vector<std::vector<double>> train_outputs,
+             std::vector<std::vector<double>> test_inputs,
+             std::vector<std::vector<double>> test_outputs);
   void test(const std::vector<double>& test_input,
             const std::vector<double>& test_output);
 };
@@ -237,12 +240,14 @@ Brain::Brain(std::string file) : \
   N_layers(0), flopRate(0.), Type(""), epochs(0), testit(0), \
   filename(std::filesystem::path(file).replace_filename("Brain/")) {
   #if DEBUG >= 3
-  std::cout << "DEBUG(3): Creating Brain from " << filename << std::endl;
+  if (MPI_GRANK == 0)
+    std::cout << "DEBUG(3): Creating Brain from " << file << std::endl;
   #endif
   std::filesystem::create_directories(filename);
   std::ifstream fr(file);
   if (!fr.is_open()) {
-    std::cerr << "CRITICAL: Unable to init file " << file << "\n";
+    if (MPI_GRANK == 0)
+      std::cerr << "CRITICAL: Unable to init file " << file << "\n";
     exit(EXIT_FAILURE);
   }
   std::map<std::string, std::string> params;
@@ -251,19 +256,20 @@ Brain::Brain(std::string file) : \
   params["Layers"] = "6";
   params["flopRate"] = "2";
   params["epochs"] = "4";
+  params["testit"] = "4";
   std::string line;
   // Read Parameters by parsing with RegEx
   while (std::getline(fr, line)) params = paramMap(line, params);
   fr.close();
+  testit = std::atoi(params["testit"].c_str());
   Type = params["Type"];
   epochs = std::atoi(params["epochs"].c_str());
   // Global number of Layers
   N_layers = std::atoi(params["N_layers"].c_str());
-  if (N_layers > MAX_LAYERS) {
-    std::cerr << "CRITICAL: Number of Layers exceeds MAX_LAYERS" << std::endl;
-    exit(EXIT_FAILURE);
-  } else if (N_layers < 2) {
-    std::cerr << "CRITICAL: Number of Layers must be at least 2" << std::endl;
+  if (2 > N_layers || N_layers > MAX_LAYERS) {
+    if (MPI_GRANK == 0)
+      std::cerr << "CRITICAL: Number of Layers exceeds MAX_LAYERS" \
+                << std::endl;
     exit(EXIT_FAILURE);
   }
   #ifdef _MPI
@@ -275,14 +281,13 @@ Brain::Brain(std::string file) : \
   chunksize = (N_layers - 2) / (MPI_GSIZE - 1);
   offset = (N_layers - 2) % (MPI_GSIZE - 1);
   N_layers = MPI_GRANK ? chunksize + (MPI_GRANK <= offset) : 2;
-  std::vector<int> L(N_layers, 0);
   #endif
   std::vector<int> L(N_layers, 0);
   #ifdef _MPI
   if (MPI_GRANK) param2vec(params["Layers"], L, N_layers, 1 + MPI_GRANK);
   else {
-    param2vec(params["Layers"], L, 1, 0);
     param2vec(params["Layers"], L, 1, MPI_GSIZE - 1);
+    param2vec(params["Layers"], L, 1, 0, 1);
   }
   #else
   param2vec(params["Layers"], L, N_layers);
@@ -292,7 +297,8 @@ Brain::Brain(std::string file) : \
     for (size_t layer = 0; layer < N_layers; layer++) {
       std::ostringstream filepath("");
       filepath << filename << std::setfill('0') \
-               << std::setw(static_cast<int>(log10(MAX_LAYERS))) << layer;
+               << std::setw(static_cast<int>(log10(MAX_LAYERS))) \
+               << layer + MPI_GRANK;
       Layers.push_back(Layer(L[layer], !(layer) ? 0 : L[layer - 1],
                        filepath.str()));
     }
@@ -300,6 +306,7 @@ Brain::Brain(std::string file) : \
 }
 
 void Brain::HelloWorld() {
+  if (MPI_GRANK) return;
   size_t i = 0;
   for (auto& layer : Layers) {
     std::cout << "L" << std::setfill('0') \
@@ -315,11 +322,6 @@ std::vector<double> Brain::forward(std::vector<double> X) {
   #ifdef _MPI
   MPI_Send(X.data(), X.size(), MPI_DOUBLE, MPI_GRANK,
            (MPI_GRANK + 1) % MPI_GSIZE, MPI_COMM_WORLD);
-  if (MPI_GRANK == 0) {
-    MPI_Recv(Y.data(), Y.size(), MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    #pragma omp parallel for shared(X, Y)
-    for (size_t j = 0; j < X.size(); j++) X[j] += Y[j];
-  }
   #endif
   return X;
 }
@@ -351,50 +353,44 @@ unsigned short Brain::backPropagate(const std::vector<double>& X,
   for (size_t i = 0; i < prediction.size(); ++i)
     error[i] = Y[i] - prediction[i];
 
-  // Backpropagation to update weights
-  for (size_t layer = N_layers - 1; layer >= 0; --layer) {
-    Layer& currentLayer = Layers[layer];
-    Layer* prevLayer = (layer > 0) ? &Layers[layer - 1] : nullptr;
-
-    // Compute gradients for the current layer
-    std::vector<double> gradients(currentLayer.N_nodes);
-    for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
-      double neuronOutput = currentLayer.Neurons[n].Value;
-      gradients[n] = error[n] * neuronOutput * (1 - neuronOutput);
+  // Backpropagate the error
+  for (size_t i = N_layers - 1; i > 0; i--) {
+    // Compute the gradient of the error with respect to the output
+    std::vector<double> gradient(prediction.size(), 0.);
+    #pragma omp parallel for shared(gradient)
+    for (size_t j = 0; j < prediction.size(); j++)
+      gradient[j] = error[j] * D_relu(prediction[j]);
+    // Compute the gradient of the error with respect to the weights
+    std::vector<std::vector<double>> delta_weights(Layers[i].N_nodes,
+                                                   std::vector<double>(Layers[i].N_connections, 0.));
+    #pragma omp parallel for shared(delta_weights)
+    for (size_t j = 0; j < Layers[i].N_nodes; j++) {
+      for (size_t k = 0; k < Layers[i].N_connections; k++)
+        delta_weights[j][k] = gradient[j] * Layers[i - 1].Value(k);
     }
-
-    // Update weights for the current layer
-    for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
-      neuron& currentNeuron = currentLayer.Neurons[n];
-      for (size_t weightIndex = 0; weightIndex < currentNeuron.Weights.size(); ++weightIndex) {
-        double deltaWeight = (prevLayer != nullptr) ?
-                              prevLayer->Neurons[weightIndex].Value * gradients[n] :
-                              X[weightIndex] * gradients[n];
-        currentNeuron.Weights[weightIndex] += currentLayer.LrnRate * deltaWeight;
-      }
-      // Update bias
-      currentNeuron.Bias += currentLayer.LrnRate * gradients[n];
+    // Update the weights
+    #pragma omp parallel for shared(Layers)
+    for (size_t j = 0; j < Layers[i].N_nodes; j++) {
+      for (size_t k = 0; k < Layers[i].N_connections; k++)
+        Layers[i].Neurons[j].Weights[k] += Layers[i].LrnRate * delta_weights[j][k];
     }
-
-    // Update error for the next layer
-    if (prevLayer != nullptr) {
-      std::vector<double> newError(prevLayer->N_nodes, 0.0);
-      for (size_t prevNeuronIndex = 0; prevNeuronIndex < prevLayer->N_nodes; ++prevNeuronIndex) {
-        for (size_t n = 0; n < currentLayer.N_nodes; ++n) {
-          newError[prevNeuronIndex] += gradients[n] *
-                                      currentLayer.Neurons[n].Weights[prevNeuronIndex];
-        }
-      }
-      error = newError;
+    // Compute the gradient of the error with respect to the output of the previous layer
+    std::vector<double> next_layer_error(Layers[i - 1].N_nodes, 0.);
+    #pragma omp parallel for shared(next_layer_error)
+    for (size_t j = 0; j < Layers[i - 1].N_nodes; j++) {
+      for (size_t k = 0; k < Layers[i].N_nodes; k++)
+        next_layer_error[j] += Layers[i].Neurons[k].Weights[j] * gradient[k];
     }
+    // Update the error
+    error = next_layer_error;
   }
   return ++epochs;
 }
 
 // Train the network using stochastic gradient descent
-unsigned short Brain::train(const std::vector<double>& train_input,
-                  const std::vector<double>& train_output,
-                  unsigned short epochs) {
+unsigned short Brain::train(std::vector<double>& train_input,
+                            std::vector<double>& train_output,
+                            unsigned short epochs) {
   if (MPI_GRANK == 0) backPropagate(train_input, train_output, epochs);
   else {
     #ifdef _MPI
@@ -408,13 +404,13 @@ unsigned short Brain::train(const std::vector<double>& train_input,
   return ++epochs;
 }
 
-void Brain::train(const std::vector<double>& train_input,
-                  const std::vector<double>& train_output) {
+void Brain::train(std::vector<double>& train_input,
+                  std::vector<double>& train_output) {
   train(train_input, train_output, 0);
 }
 
-void Brain::train(const std::vector<std::vector<double>>& train_inputs,
-                  const std::vector<std::vector<double>>& train_outputs) {
+void Brain::train(std::vector<std::vector<double>> train_inputs,
+                  std::vector<std::vector<double>> train_outputs) {
   int test_every = testit ? testit : 1;
   int test_count = 0;
   // Train the network
@@ -427,10 +423,10 @@ void Brain::train(const std::vector<std::vector<double>>& train_inputs,
   }
 }
 
-void Brain::train(const std::vector<std::vector<double>>& train_inputs,
-                  const std::vector<std::vector<double>>& train_outputs,
-                  const std::vector<std::vector<double>>& test_inputs,
-                  const std::vector<std::vector<double>>& test_outputs) {
+void Brain::train(std::vector<std::vector<double>> train_inputs,
+                  std::vector<std::vector<double>> train_outputs,
+                  std::vector<std::vector<double>> test_inputs,
+                  std::vector<std::vector<double>> test_outputs) {
   int test_every = testit ? testit : 1;
   int test_count = 0;
   // Train the network
@@ -445,9 +441,8 @@ void Brain::train(const std::vector<std::vector<double>>& train_inputs,
 
 void Brain::test(const std::vector<double>& test_input,
                  const std::vector<double>& test_output) {
-  std::cout << "Error: " \
-            << meanSquaredError(test_output, forward(test_input)) \
-            << std::endl;
+  double error = meanSquaredError(test_output, forward(test_input));
+  std::cout << "Error: " << error << std::endl;
 }
 
 
