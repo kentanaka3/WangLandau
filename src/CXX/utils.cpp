@@ -126,6 +126,234 @@ double crossEntropy(const std::vector<double>& y_true,
 	return -total / y_true.size();
 }
 
+double accuracy(const std::vector<double>& y_true,
+								const std::vector<double>& y_pred) {
+	if (y_true.size() != y_pred.size()) {
+		std::cerr << "Error: Size mismatch between true and predicted values.\n";
+		exit(EXIT_FAILURE);
+	}
+	double total = 0.;
+	#pragma omp parallel for reduction(+:total)
+	for (size_t i = 0; i < y_true.size(); ++i)
+		total += (y_true[i] == y_pred[i]);
+	return total / static_cast<double>(y_true.size());
+}
+
+std::vector<double> stochasticGradientDescent(
+	const std::vector<double>& gradient, const double& learning_rate) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++)
+		update[i] = -learning_rate * gradient[i];
+	return update;
+}
+std::vector<double> stochasticGradientDescent(
+	const std::vector<double>& gradient, const double& learning_rate,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> update = stochasticGradientDescent(gradient,
+																												 learning_rate);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= momentum * weights[i];
+	return update;
+}
+
+std::vector<double> momentum(const std::vector<double>& gradient,
+	const double& learning_rate, const double& b, const std::vector<double>& v) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		update[i] = b * v[i] - learning_rate * gradient[i];
+	}
+	return update;
+}
+std::vector<double> momentum(const std::vector<double>& gradient,
+	const double& learning_rate, const double& b, const std::vector<double>& v,
+	const double& decay, std::vector<double>& weights) {
+	std::vector<double> update = momentum(gradient, learning_rate, b, v);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= decay * weights[i];
+	return update;
+}
+
+std::vector<double> momentumNesterov(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta, std::vector<double>& v) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		v[i] = beta * v[i] - learning_rate * gradient[i];
+		update[i] = -beta * v[i] + (1 + beta) * v[i];
+	}
+	return update;
+}
+std::vector<double> momentumNesterov(
+	const std::vector<double>& gradient, const double& learning_rate,
+	const double& beta, std::vector<double>& v, const double& momentum,
+	std::vector<double>& weights) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		v[i] = beta * v[i] - learning_rate * gradient[i] - momentum * weights[i];
+		update[i] = -beta * v[i] + (1 + beta) * v[i];
+	}
+	return update;
+}
+
+std::vector<double> RMSprop(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta, std::vector<double>& cache){
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		cache[i] = beta * cache[i] + (1 - beta) * gradient[i] * gradient[i];
+		update[i] = -learning_rate * gradient[i] / (std::sqrt(cache[i]) + EPS);
+	}
+	return update;
+}
+std::vector<double> RMSprop(const std::vector<double>& gradient,
+	const double& learning_rate,const double& beta, std::vector<double>& cache,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> update = RMSprop(gradient, learning_rate, beta, cache);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= momentum * weights[i];
+	return update;
+}
+
+std::vector<double> RMSpropGraves(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta, std::vector<double>& cache){
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		cache[i] = beta * cache[i] + (1 - beta) * gradient[i] * gradient[i];
+		update[i] = -learning_rate * gradient[i] / (std::sqrt(cache[i]) + EPS);
+	}
+	return update;
+}
+std::vector<double> RMSpropGraves(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta, std::vector<double>& cache,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> update = RMSpropGraves(gradient, learning_rate, beta, \
+																						 cache);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= momentum * weights[i];
+	return update;
+}
+
+std::vector<double> Adam(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta1, const double& beta2,
+	std::vector<double>& m, std::vector<double>& v, const int& t) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		m[i] = beta1 * m[i] + (1 - beta1) * gradient[i];
+		v[i] = beta2 * v[i] + (1 - beta2) * gradient[i] * gradient[i];
+		update[i] = (-learning_rate * m[i] / (1 - std::pow(beta1, t))) / (std::sqrt(v[i] / (1 - std::pow(beta2, t))) + EPS);
+	}
+	return update;
+}
+std::vector<double> Adam(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta1, const double& beta2,
+	std::vector<double>& m, std::vector<double>& v, const int& t,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> update = Adam(gradient, learning_rate, beta1, beta2, \
+																		m, v, t);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= momentum * weights[i];
+	return update;
+}
+
+std::vector<double> AdaMax(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta1, const double& beta2,
+	std::vector<double>& m, std::vector<double>& u, const int& t) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		m[i] = beta1 * m[i] + (1 - beta1) * gradient[i];
+		u[i] = std::max(beta2 * u[i], std::abs(gradient[i]));
+		update[i] = -learning_rate / (1 - std::pow(beta1, t)) * m[i] / (u[i] + EPS);
+	}
+	return update;
+}
+std::vector<double> AdaMax(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta1, const double& beta2,
+	std::vector<double>& m, std::vector<double>& u, const int& t,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> update = AdaMax(gradient, learning_rate, beta1, beta2, \
+																			m, u, t);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= momentum * weights[i];
+	return update;
+}
+
+std::vector<double> nAdam(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta1, const double& beta2,
+	std::vector<double>& m, std::vector<double>& v, const int& t) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		m[i] = beta1 * m[i] + (1 - beta1) * gradient[i];
+		v[i] = beta2 * v[i] + (1 - beta2) * gradient[i] * gradient[i];
+		double m_hat = m[i] / (1 - std::pow(beta1, t));
+		double v_hat = v[i] / (1 - std::pow(beta2, t));
+		update[i] = -learning_rate * (beta1 * m_hat + (1 - beta1) * gradient[i]) /
+								(std::sqrt(v_hat) + EPS);
+	}
+	return update;
+}
+std::vector<double> nAdam(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta1, const double& beta2,
+	std::vector<double>& m, std::vector<double>& v, const int& t,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> update = nAdam(gradient, learning_rate, beta1, beta2, \
+																			m, v, t);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= momentum * weights[i];
+	return update;
+}
+
+std::vector<double> AdaGrad(const std::vector<double>& gradient,
+	const double& learning_rate, std::vector<double>& cache) {
+	std::vector<double> update(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		cache[i] += gradient[i] * gradient[i];
+		update[i] = -learning_rate * gradient[i] / (std::sqrt(cache[i]) + EPS);
+	}
+	return update;
+}
+std::vector<double> AdaGrad(const std::vector<double>& gradient,
+	const double& learning_rate, std::vector<double>& cache,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> update = AdaGrad(gradient, learning_rate, cache);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) update[i] -= momentum * weights[i];
+	return update;
+}
+
+std::vector<double> AdaDelta(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta, std::vector<double>& cache,
+	std::vector<double>& update) {
+	std::vector<double> new_cache(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		cache[i] = beta * cache[i] + (1 - beta) * gradient[i] * gradient[i];
+		update[i] = -std::sqrt(new_cache[i] + EPS) / std::sqrt(cache[i] + EPS) * gradient[i];
+		new_cache[i] = beta * new_cache[i] + (1 - beta) * update[i] * update[i];
+	}
+	return update;
+}
+std::vector<double> AdaDelta(const std::vector<double>& gradient,
+	const double& learning_rate, const double& beta, std::vector<double>& cache,
+	std::vector<double>& update,
+	const double& momentum, std::vector<double>& weights) {
+	std::vector<double> new_cache(gradient.size(), 0.);
+	#pragma omp parallel for
+	for (int i = 0; i < gradient.size(); i++) {
+		cache[i] = beta * cache[i] + (1 - beta) * gradient[i] * gradient[i];
+		update[i] = -std::sqrt(new_cache[i] + EPS) / std::sqrt(cache[i] + EPS) * gradient[i] - momentum * weights[i];
+		new_cache[i] = beta * new_cache[i] + (1 - beta) * update[i] * update[i];
+	}
+	return update;
+}
+
 std::vector<double> readVec(const std::string& filename, const int& N) {
   std::vector<double> vec(N, 0);
 	std::ifstream myFile(filename.c_str());
@@ -162,7 +390,7 @@ std::vector<std::vector<double>> readMtx(const std::string& filename,
 	return mtx;
 }
 
-void printVec(const std::string& filename, std::vector<double> vec,
+void printVec(const std::string& filename, const std::vector<double>& vec,
 							const int& N, const int& ax) {
 	std::ofstream file_out;
 	file_out.open(filename.c_str());
@@ -174,11 +402,26 @@ void printVec(const std::string& filename, std::vector<double> vec,
 	}
 	file_out.close();
 }
-void printVec(const std::string& filename, std::vector<double> vec,
+void printVec(const std::string& filename, const std::vector<double>& vec,
 							const int& N) {printVec(filename, vec, N, 0);}
+void printVec(const std::string& filename, const std::vector<double>& vec) {
+	printVec(filename, vec, vec.size(), 0);
+}
+void printVec(const std::vector<double>& vec, const int& N, const int& ax) {
+	if (ax == 0) { // Print as row
+		for (int i = 0; i < N; i++) std::cout << vec[i] << "\t";
+		std::cout << std::endl;
+	} else if (ax == 1) { // Print as column
+		for (int i = 0; i < N; i++) std::cout << vec[i] << std::endl;
+	}
+}
+void printVec(const std::vector<double>& vec, const int& N) {
+	printVec(vec, N, 0);
+}
+void printVec(const std::vector<double>& vec) {printVec(vec, vec.size(), 0);}
 
 void printMtx(const std::string& filename, const size_t& rows,
-							const size_t& cols, const std::vector<std::vector<double>> mtx) {
+							const size_t& cols, const std::vector<std::vector<double>>& mtx){
 	std::ofstream file_out;
 	file_out.open(filename.c_str());
 	for (int i = 0; i < rows; i++) {
@@ -401,3 +644,301 @@ size_t argMax(const std::vector<double> vec, const size_t& N) {
 		i_max = (vec[i] > vec[i_max]) ? i : i_max;
 	return i_max;
 }
+
+std::map<std::string, TokenType> KEYWORDS_ML = {
+	{"∧", TokenType::AND}, 			// Logical and
+	{",", TokenType::COMMA},
+	{"\\", TokenType::CONTROL},
+	{"÷", TokenType::DIVISION}, // Division
+	{"}", TokenType::END},			// End C++
+	{"=", TokenType::EQUAL}, 		// Equal
+	{".", TokenType::DOT},			// Dot
+	{"¿", TokenType::ELSE},			// Else
+	{"\n", TokenType::END},			// End of line
+	{"\0", TokenType::EOF_},		// End of file
+	{">", TokenType::GREATER},	// Greater than
+	{"?", TokenType::IF},				// If
+	{"(", TokenType::LEFT_PAREN},
+	{"<", TokenType::LESS},			// Less than
+	{"-", TokenType::MINUS},		// Minus
+	{"¬", TokenType::NOT},			// Logical not
+	{"∂", TokenType::OPERATOR}, // Partial Derivative
+	{"\'", TokenType::OPERATOR}, // First Exact Derivative
+	{"\"", TokenType::OPERATOR}, // Second Exact Derivative
+	{"∇", TokenType::OPERATOR}, // Gradient
+	{"∑", TokenType::OPERATOR}, // Discrete Sum
+	{"∏", TokenType::OPERATOR}, // Product
+	{"×", TokenType::OPERATOR}, // Multiplication
+	{"!", TokenType::OPERATOR}, // Factorial
+	{"⋅", TokenType::OPERATOR}, // Dot product
+	{"○", TokenType::OPERATOR}, // O operator
+	{"∙", TokenType::OPERATOR}, // Dot operator
+	{"√", TokenType::OPERATOR}, // Square root
+	{"∛", TokenType::OPERATOR}, // Cube root
+	{"∜", TokenType::OPERATOR}, // Fourth root
+	{"∫", TokenType::OPERATOR}, // Integral
+	{"∬", TokenType::OPERATOR}, // Double integral
+	{"∭", TokenType::OPERATOR}, // Triple integral
+	{"∮", TokenType::OPERATOR}, // Contour integral
+	{"∯", TokenType::OPERATOR}, // Surface integral
+	{"∰", TokenType::OPERATOR}, // Volume integral
+	{"∴", TokenType::OPERATOR}, // Therefore
+	{"∵", TokenType::OPERATOR}, // Because
+	{"≠", TokenType::OPERATOR}, // Not equal
+	{"≡", TokenType::OPERATOR}, // Identical
+	{"≢", TokenType::OPERATOR}, // Not identical
+	{"≣", TokenType::OPERATOR}, // Not identical
+	{"≤", TokenType::OPERATOR}, // Less than or equal
+	{"≥", TokenType::OPERATOR}, // Greater than or equal
+	{"≦", TokenType::OPERATOR}, // Less than or equal
+	{"≧", TokenType::OPERATOR}, // Greater than or equal
+	{"≨", TokenType::OPERATOR}, // Less than or equivalent
+	{"≩", TokenType::OPERATOR}, // Greater than or equivalent
+	{"≪", TokenType::OPERATOR}, // Much less than
+	{"≫", TokenType::OPERATOR}, // Much greater than
+	{"≬", TokenType::OPERATOR}, // Between
+	{"≭", TokenType::OPERATOR}, // Not between
+	{"≮", TokenType::OPERATOR}, // Not less than
+	{"≯", TokenType::OPERATOR}, // Not greater than
+	{"≰", TokenType::OPERATOR}, // Neither less than nor equal
+	{"≱", TokenType::OPERATOR}, // Neither greater than nor equal
+	{"≲", TokenType::OPERATOR}, // Less than or equivalent
+	{"≳", TokenType::OPERATOR}, // Greater than or equivalent
+	{"≴", TokenType::OPERATOR}, // Less than or greater than
+	{"≵", TokenType::OPERATOR}, // Greater than or less than
+	{"≶", TokenType::OPERATOR}, // Less than or equivalent
+	{"≷", TokenType::OPERATOR}, // Greater than or equivalent
+	{"≸", TokenType::OPERATOR}, // Less than or greater than
+	{"≹", TokenType::OPERATOR}, // Greater than or less than
+	{"≺", TokenType::OPERATOR}, // Precedes
+	{"≻", TokenType::OPERATOR}, // Succeeds
+	{"≼", TokenType::OPERATOR}, // Precedes or equal
+	{"≽", TokenType::OPERATOR}, // Succeeds or equal
+	{"≾", TokenType::OPERATOR}, // Precedes or equivalent
+	{"≿", TokenType::OPERATOR}, // Succeeds or equivalent
+	{"⊀", TokenType::OPERATOR}, // Does not precede
+	{"⊁", TokenType::OPERATOR}, // Does not succeed
+	{"⊂", TokenType::OPERATOR}, // Subset
+	{"⊃", TokenType::OPERATOR}, // Superset
+	{"⊄", TokenType::OPERATOR}, // Not a subset
+	{"⊅", TokenType::OPERATOR}, // Not a superset
+	{"⊆", TokenType::OPERATOR}, // Subset or equal
+	{"⊇", TokenType::OPERATOR}, // Superset or equal
+	{"⊈", TokenType::OPERATOR}, // Neither subset nor equal
+	{"⊉", TokenType::OPERATOR}, // Neither superset nor equal
+	{"⊊", TokenType::OPERATOR}, // Subset but not equal
+	{"⊋", TokenType::OPERATOR}, // Superset but not equal
+	{"⊌", TokenType::OPERATOR}, // Neither subset nor superset
+	{"⊍", TokenType::OPERATOR}, // Subset of or equal to
+	{"⊎", TokenType::OPERATOR}, // Superset of or equal to
+	{"⊏", TokenType::OPERATOR}, // Neither subset nor equal
+	{"⊐", TokenType::OPERATOR}, // Neither superset nor equal
+	{"⊑", TokenType::OPERATOR}, // Subset but not equal
+	{"⊒", TokenType::OPERATOR}, // Superset but not equal
+	{"⊓", TokenType::OPERATOR}, // Neither subset nor superset
+	{"⊔", TokenType::OPERATOR}, // Subset of or equal to
+	{"⊖", TokenType::OPERATOR}, //
+	{"*", TokenType::OPERATOR}, // Katri-Rao product
+	{"⊗", TokenType::OPERATOR}, // Tensor product
+	{"⊘", TokenType::OPERATOR}, // Division sign
+	{"⊙", TokenType::OPERATOR}, // Hadamard product
+	{"⊚", TokenType::OPERATOR}, //
+	{"⊛", TokenType::OPERATOR}, //
+	{"⊜", TokenType::OPERATOR}, //
+	{"⊝", TokenType::OPERATOR}, //
+	{"⊞", TokenType::OPERATOR}, //
+	{"⊟", TokenType::OPERATOR}, //
+	{"⊠", TokenType::OPERATOR}, //
+	{"⊡", TokenType::OPERATOR}, //
+	{"⊬", TokenType::OPERATOR}, // Does not prove
+	{"⊰", TokenType::OPERATOR}, // Precedes under relation
+	{"⊱", TokenType::OPERATOR}, // Succeeds under relation
+	{"⊲", TokenType::OPERATOR}, // Normal subgroup of
+	{"⊳", TokenType::OPERATOR}, // Contains as normal subgroup
+	{"⊴", TokenType::OPERATOR}, // Normal subgroup of or equal to
+	{"⊵", TokenType::OPERATOR}, // Contains as normal subgroup or equal
+	{"⊹", TokenType::OPERATOR}, // Hermitian conjugate matrix
+	{"⊻", TokenType::OPERATOR}, // Xor
+	{"⊼", TokenType::OPERATOR}, // Nand
+	{"⊽", TokenType::OPERATOR}, // Nor
+	{"⋀", TokenType::OPERATOR}, // N-ary logical and
+	{"⋁", TokenType::OPERATOR}, // N-ary logical or
+	{"⋂", TokenType::OPERATOR}, // N-ary intersection
+	{"⋃", TokenType::OPERATOR}, // N-ary union
+	{"⋄", TokenType::OPERATOR}, // Diamond operator
+	{"⋅", TokenType::OPERATOR}, // Dot operator
+	{"⋋", TokenType::OPERATOR}, // Left semidirect product
+	{"⋌", TokenType::OPERATOR}, // Right semidirect product
+	{"⋒", TokenType::OPERATOR}, // Double intersection
+	{"⋓", TokenType::OPERATOR}, // Double union
+	{"⋕", TokenType::OPERATOR}, // Equal and parallel to
+	{"⋚", TokenType::OPERATOR}, // Less-than equal to or greater-than
+	{"⋛", TokenType::OPERATOR}, // Greater-than equal to or less-than
+	{"⋜", TokenType::OPERATOR}, // Equal to or less-than
+	{"⋝", TokenType::OPERATOR}, // Equal to or greater-than
+	{"⋞", TokenType::OPERATOR}, // Equal to or precedes
+	{"⋟", TokenType::OPERATOR}, // Equal to or succeeds
+	{"⋠", TokenType::OPERATOR}, // Not equal to
+	{"⋡", TokenType::OPERATOR}, // Not less-than
+	{"⋢", TokenType::OPERATOR}, // Not greater-than
+	{"⋣", TokenType::OPERATOR}, // Neither less-than nor equal to
+	{"⋤", TokenType::OPERATOR}, // Neither greater-than nor equal to
+	{"⋥", TokenType::OPERATOR}, // Neither less-than nor greater-than
+	{"⋦", TokenType::OPERATOR}, // Precedes or equal to
+	{"⋧", TokenType::OPERATOR}, // Succeeds or equal to
+	{"⋨", TokenType::OPERATOR}, // Precedes or equivalent to
+	{"⋩", TokenType::OPERATOR}, // Succeeds or equivalent to
+	{"⌅", TokenType::OPERATOR},	// Projective
+	{"⌆", TokenType::OPERATOR},	// Perspective
+	{"⊕", TokenType::OPERATOR}, // Direct sum
+	{"∨", TokenType::OR}, 			// Logical or
+	{"+", TokenType::PLUS}, 		// Plus
+	{")", TokenType::RIGHT_PAREN},
+	{"√", TokenType::SQRT},			// Square root
+	{"{", TokenType::START},		// Start C++
+	{"[", TokenType::TENSOR},		// Tensor
+	{"]", TokenType::TENSOR},		// Tensor
+	{"∴", TokenType::THEN},			// Therefore
+	{"~", TokenType::WHILE},		// While
+	{"ⲁ", TokenType::VARIABLE},	// Alpha
+	{"ⲃ", TokenType::VARIABLE},	// Beta
+	{"ⲅ", TokenType::VARIABLE},	// Gamma
+	{"ⲇ", TokenType::VARIABLE},	// Delta
+	{"∆", TokenType::VARIABLE}, // Delta
+	{"ⲉ", TokenType::VARIABLE},	// Epsilon
+	{"ⲋ", TokenType::VARIABLE},	// Zeta
+	{"ⲍ", TokenType::VARIABLE},	// Eta
+	{"ⲏ", TokenType::VARIABLE},
+	{"ⲑ", TokenType::VARIABLE},	// Theta
+	{"ⲓ", TokenType::VARIABLE},	// Iota
+	{"ⲕ", TokenType::VARIABLE},	// Kappa
+	{"ⲗ", TokenType::VARIABLE},	// Lambda
+	{"ⲙ", TokenType::VARIABLE},	// Mu
+	{"ⲛ", TokenType::VARIABLE},	// Nu
+	{"ⲝ", TokenType::VARIABLE},	// Xi (Noise)
+	{"ⲟ", TokenType::VARIABLE},	// Omicron
+	{"ⲡ", TokenType::VARIABLE},	// Pi
+	{"ⲣ", TokenType::VARIABLE},	// Rho
+	{"ⲥ", TokenType::VARIABLE},	// Sigma
+	{"ⲧ", TokenType::VARIABLE},	// Tau
+	{"ⲩ", TokenType::VARIABLE},	// Upsilon
+	{"ⲫ", TokenType::VARIABLE},	// Phi
+	{"ⲭ", TokenType::VARIABLE},	// Chi
+	{"ⲯ", TokenType::VARIABLE},	// Psi
+	{"ⲱ", TokenType::VARIABLE},	// Omega
+	// {"#", TokenType::FALSE},
+	// {"$", TokenType::TRUE},
+	// {, enType::BOOLEAN},
+	// {, enType::INTEGER},
+	// {, enType::COMPLEX},
+	// {, enType::FLOAT},
+	// {, enType::DOUBLE},
+	// {, enType::LONG},
+	// {, enType::SHORT},
+	// {, enType::CHAR},
+	// {, enType::STRING},
+	// {, enType::ARRAY},
+	// {, enType::VECTOR},
+	// {, enType::MATRIX},
+	// {, enType::TENSOR},
+	// {, enType::LIST},
+	// {, enType::SET},
+	// {, enType::MAP},
+	// {, enType::GRAPH},
+	// {, enType::TREE},
+	// {, enType::STACK},
+	// {, enType::QUEUE},
+	// {, enType::DEQUE},
+	// {, enType::PRIORITY_QUEUE},
+	// {, enType::LINKED_LIST},
+	// {, enType::DOUBLY_LINKED_LIST},
+	// {, enType::CIRCULAR_LINKED_LIST},
+	// {, enType::CIRCULAR_DOUBLY_LINKED_LIST},
+	// {, enType::BINARY_TREE},
+	// {, enType::BINARY_SEARCH_TREE},
+	// {, enType::AVL_TREE},
+	// {, enType::RED_BLACK_TREE},
+	// {, enType::HEAP},
+	// {, enType::HASH_TABLE},
+	// {, enType::REVERSE},
+	// {, enType::ASSIGNMENT},
+
+	// {"@", TokenType::}, // At sign
+	// {"&", TokenType::}, // Ampersand
+	// {"|", TokenType::}, // Vertical bar
+	// {"_", TokenType::UNDEFINED},
+	// {":", TokenType::}, // Colon
+	// {"\"",  TokenType::}, // Single quote
+	// {"/", TokenType::}, // Division
+	// {";", TokenType::}, // Semicolon
+	// {"°", TokenType::}, // Degree
+	// {"∞", TokenType::}, // Infinity
+	// {"∅", TokenType::}, // Empty set
+	// {"∀", TokenType::}, // For all
+	// {"∃", TokenType::}, // There exists
+	// {"∄", TokenType::}, // There does not exist
+	// {"§", TokenType::}, // Section
+	// {"¶", TokenType::}, // Paragraph
+	// {"±", TokenType::}, // Plus or minus
+	// {"∞", TokenType::}, // Infinity
+	// {"%", TokenType::}, // Percent
+	// {"∫", TokenType::}, // Integral
+	// {"≈", TokenType::}, // Approximately equal
+	// {"≠", TokenType::}, // Not equal
+	// {"≤", TokenType::}, // Less than or equal
+	// {"≥", TokenType::}, // Greater than or equal
+	// {"∈", TokenType::}, // Element of
+	// {"∉", TokenType::}, // Not an element of
+	// {"∋", TokenType::}, // Contains as member
+	// {"∌", TokenType::}, // Does not contain as member
+	// {"∠", TokenType::}, // Angle
+	// {"∩", TokenType::}, // Intersection
+	// {"∪", TokenType::}, // Union
+	// {"∼", TokenType::}, // Tilde
+	// {"≅", TokenType::}, // Congruent to
+	// {"≡", TokenType::}, // Identical to
+	// {"≢", TokenType::}, // Not identical to
+	// {"⊂", TokenType::}, // Subset of
+	// {"⊃", TokenType::}, // Superset of
+	// {"⊄", TokenType::}, // Not a subset of
+	// {"⊆", TokenType::}, // Subset of or equal to
+	// {"⊇", TokenType::}, // Superset of or equal to
+	// {"⊥", TokenType::}, // Perpendicular
+	// {"⌈", TokenType::}, // Left Ceiling
+	// {"⌉", TokenType::}, // Right Ceiling
+	// {"⌊", TokenType::}, // Left Floor
+	// {"⌋", TokenType::}, // Right Floor
+	// {"□", TokenType::}, //
+	// {"◦", TokenType::}, // Degree
+	// {"⟨", TokenType::}, // Bra
+	// {"⟩", TokenType::}, // Ket
+};
+std::map<TokenType, std::string> KEYWORDS_ML_R = {
+	{TokenType::AND, "∧"}, 			// Logical and
+	{TokenType::COMMA, ","},
+	{TokenType::CONTROL, "\\"},
+	{TokenType::DIVISION, "÷"}, // Division
+	{TokenType::END, "}"},			// End C++
+	{TokenType::EQUAL, "="}, 		// Equal
+	{TokenType::DOT, "."},			// Dot
+	{TokenType::ELSE, "¿"},			// Else
+	{TokenType::END, "\n"},		// End of line
+	{TokenType::EOF_, "\0"},		// End of file
+	{TokenType::GREATER, ">"},	// Greater than
+	{TokenType::IF, "?"},				// If
+	{TokenType::LEFT_PAREN, "("},
+	{TokenType::LESS, "<"},			// Less than
+	{TokenType::MINUS, "-"},		// Minus
+	{TokenType::NOT, "¬"},			// Logical not
+	//{TokenType::OPERATOR, ""}, 
+	{TokenType::OR, "∨"}, 			// Logical or
+	{TokenType::PLUS, "+"}, 		// Plus
+	{TokenType::RIGHT_PAREN, ")"},
+	{TokenType::SQRT, "√"},			// Square root
+	{TokenType::START, "{"},		// Start C++
+	{TokenType::TENSOR, "["},		// Tensor
+	{TokenType::TENSOR, "]"},		// Tensor
+	{TokenType::THEN, "∴"},			// Therefore
+	{TokenType::WHILE, "~"},		// While
+	//{TokenType::VARIABLE, ""}, // Omega
+};
