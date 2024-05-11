@@ -1,3 +1,5 @@
 build/
 .vscode/
 .DS_store
+test/data/Neuron/Brain/*/B.dat
+test/data/Neuron/Brain/*/W.dat
