@@ -195,206 +195,206 @@ void param2vec(const std::string& param, std::vector<double>& vec,
 size_t argMax(const std::vector<double> vec);
 size_t argMax(const std::vector<double> vec, const size_t& N);
 
-// Token types
-enum class TokenType {
-	WHILE,
-	CONTROL,
-	ASSIGNMENT,
-	START, END,
-	IDENTIFIER,
-	TRUE, FALSE,
-	AND, OR, NOT,																// Task 1
-	IF, THEN, ELSE,
-	// INPUT, OUTPUT,
-	LESS, GREATER, EQUAL,
-	LEFT_PAREN, RIGHT_PAREN,
-	ACTIVATION, LAYER, LOSS, OPTIMIZER,
-	PLUS, MINUS, DIVISION, POWER, OPERATOR,
-	DOT, COMMA, SPACE, TAB, SEMICOLON, EOF_,
-	BOOLEAN, INTEGER, VARIABLE, TENSOR, UNDEFINED,
-	PI, E, TAU, PHI, SQRT, LN2, LN10, LOG2E, LOG10E,
-	REVERSE
-};
+// // Token types
+// enum class TokenType {
+// 	WHILE,
+// 	CONTROL,
+// 	ASSIGNMENT,
+// 	START, END,
+// 	IDENTIFIER,
+// 	TRUE, FALSE,
+// 	AND, OR, NOT,																// Task 1
+// 	IF, THEN, ELSE,
+// 	// INPUT, OUTPUT,
+// 	LESS, GREATER, EQUAL,
+// 	LEFT_PAREN, RIGHT_PAREN,
+// 	ACTIVATION, LAYER, LOSS, OPTIMIZER,
+// 	PLUS, MINUS, DIVISION, POWER, OPERATOR,
+// 	DOT, COMMA, SPACE, TAB, SEMICOLON, EOF_,
+// 	BOOLEAN, INTEGER, VARIABLE, TENSOR, UNDEFINED,
+// 	PI, E, TAU, PHI, SQRT, LN2, LN10, LOG2E, LOG10E,
+// 	REVERSE
+// };
 
-/*
- * Mathematical operators	: +, -, *, /, ^, %
- * Logical operators			: &, |, !
- * Comparison operators		: <, >
- * Assignment operators		: =
- * Delimiters							: (, ), [, ]
- * Keywords								: if(?), then(:), else(¿), while(~), start({), end(})
- * Constants							: true(), false()
- * Identifiers						: boolean, integer, tensor, variable, complex
- * End of file						: \0
- * Newline								: "\n"
- * Undefined							: Undefined
- */
-extern std::map<std::string, TokenType> KEYWORDS_ML;
-extern std::map<TokenType, std::string> KEYWORDS_ML_R;
+// /*
+//  * Mathematical operators	: +, -, *, /, ^, %
+//  * Logical operators			: &, |, !
+//  * Comparison operators		: <, >
+//  * Assignment operators		: =
+//  * Delimiters							: (, ), [, ]
+//  * Keywords								: if(?), then(:), else(¿), while(~), start({), end(})
+//  * Constants							: true(), false()
+//  * Identifiers						: boolean, integer, tensor, variable, complex
+//  * End of file						: \0
+//  * Newline								: "\n"
+//  * Undefined							: Undefined
+//  */
+// extern std::map<std::string, TokenType> KEYWORDS_ML;
+// extern std::map<TokenType, std::string> KEYWORDS_ML_R;
 
-const std::map<std::string, TokenType> RESERVED_KEYWORDS = {
-	{"if", KEYWORDS_ML["?"]},
-	{"IF", KEYWORDS_ML["?"]},
-	{"If", KEYWORDS_ML["?"]},
+// const std::map<std::string, TokenType> RESERVED_KEYWORDS = {
+// 	{"if", KEYWORDS_ML["?"]},
+// 	{"IF", KEYWORDS_ML["?"]},
+// 	{"If", KEYWORDS_ML["?"]},
 
-	{"then", KEYWORDS_ML["∴"]},
-	{"THEN", KEYWORDS_ML["∴"]},
-	{"Then", KEYWORDS_ML["∴"]},
+// 	{"then", KEYWORDS_ML["∴"]},
+// 	{"THEN", KEYWORDS_ML["∴"]},
+// 	{"Then", KEYWORDS_ML["∴"]},
 
-	{"else", KEYWORDS_ML["¿"]},
-	{"ELSE", KEYWORDS_ML["¿"]},
-	{"Else", KEYWORDS_ML["¿"]},
+// 	{"else", KEYWORDS_ML["¿"]},
+// 	{"ELSE", KEYWORDS_ML["¿"]},
+// 	{"Else", KEYWORDS_ML["¿"]},
 
-	{"while", KEYWORDS_ML["~"]},
-	{"WHILE", KEYWORDS_ML["~"]},
-	{"While", KEYWORDS_ML["~"]},
+// 	{"while", KEYWORDS_ML["~"]},
+// 	{"WHILE", KEYWORDS_ML["~"]},
+// 	{"While", KEYWORDS_ML["~"]},
 
-	{"start", KEYWORDS_ML["{"]},
-	{"START", KEYWORDS_ML["{"]},
-	{"Start", KEYWORDS_ML["{"]},
+// 	{"start", KEYWORDS_ML["{"]},
+// 	{"START", KEYWORDS_ML["{"]},
+// 	{"Start", KEYWORDS_ML["{"]},
 
-	{"end", KEYWORDS_ML["}"]},
-	{"END", KEYWORDS_ML["}"]},
-	{"End", KEYWORDS_ML["}"]},
+// 	{"end", KEYWORDS_ML["}"]},
+// 	{"END", KEYWORDS_ML["}"]},
+// 	{"End", KEYWORDS_ML["}"]},
 
-	{"and", KEYWORDS_ML["∧"]},
-	{"AND", KEYWORDS_ML["∧"]},
-	{"And", KEYWORDS_ML["∧"]},
+// 	{"and", KEYWORDS_ML["∧"]},
+// 	{"AND", KEYWORDS_ML["∧"]},
+// 	{"And", KEYWORDS_ML["∧"]},
 
-	{"or", KEYWORDS_ML["∨"]},
-	{"OR", KEYWORDS_ML["∨"]},
-	{"Or", KEYWORDS_ML["∨"]},
+// 	{"or", KEYWORDS_ML["∨"]},
+// 	{"OR", KEYWORDS_ML["∨"]},
+// 	{"Or", KEYWORDS_ML["∨"]},
 
-	{"not", KEYWORDS_ML["¬"]},
-	{"NOT", KEYWORDS_ML["¬"]},
-	{"Not", KEYWORDS_ML["¬"]},
-};
-
-
-// Token
-class Token {
-private:
-public:
-	std::string value;
-	TokenType type;
-	std::string text;
-	int pos;
-	char current_char;
-	Token() : value(""), type(TokenType::UNDEFINED) {}
-	Token(const std::string& value, const TokenType& type) : value(value), \
-																													 type(type) {}
-	Token(const TokenType& type, const std::string& value) : value(value), \
-																													 type(type) {}
-	std::string get_value() const { return value; }
-	TokenType get_type() const { return type; }
-	void set_value(const char& value) { this->value = std::string(1, value); }
-	void set_value(const std::string& value) { this->value = value; }
-	void set_type(TokenType type) { this->type = type; }
-};
-
-class Lexer {
-private:
-public:
-	std::string text;
-	int pos;
-	char current_char;
-	std::string current_str;
-	Lexer(const std::string& text) : text(text), pos(0), current_char(text[0]),
-																	 current_str(std::string(1, text[0])) {}
-	void error() {
-		throw std::invalid_argument("Invalid character " + current_char);
-	}
-	void advance() {
-		pos++;
-		// Indicates end of input
-		current_char = (pos > (text.size() - 1)) ? '\0' : text[pos];
-		current_str = std::string(1, current_char);
-	}
-	void skip_whitespace() {
-		while (KEYWORDS_ML[current_str] != TokenType::EOF_ \
-					 && std::isspace(current_char)) advance();
-	}
-	int integer() {
-		std::string result = "";
-		while (KEYWORDS_ML[current_str] != TokenType::EOF_ \
-					 && std::isdigit(current_char)) {
-			result += current_char;
-			advance();
-		}
-		return std::stoi(result);
-	}
-	std::string variable() {
-		std::string result = "";
-		while (KEYWORDS_ML[current_str] != TokenType::EOF_ \
-					 && isalnum(current_char)) {
-			result += current_char;
-			advance();
-		}
-		return result;
-	}
-
-	Token get_next_token() {
-		// Is there a start of input?
-		while (KEYWORDS_ML[current_str] != TokenType::EOF_) {
-			if (std::isspace(current_char)) {
-				skip_whitespace();
-				continue;
-			} else if (std::isdigit(current_char)) {
-				return Token(std::to_string(integer()), TokenType::INTEGER);
-			} else if (std::isalpha(current_char)) {
-				return Token(variable(), TokenType::VARIABLE);
-			} else {
-				if (KEYWORDS_ML.find(current_str) == KEYWORDS_ML.end())
-					return Token(current_str, TokenType::UNDEFINED);
-				else {
-					return Token(current_str, KEYWORDS_ML[current_str]);
-				}
-			}
-		}
-		return Token();
-	}
-};
+// 	{"not", KEYWORDS_ML["¬"]},
+// 	{"NOT", KEYWORDS_ML["¬"]},
+// 	{"Not", KEYWORDS_ML["¬"]},
+// };
 
 
-class Interpreter {
-private:
-public:
-  Lexer lexer;
-  Token current_token;
-  std::map<std::string, double> GLOBAL_SCOPE;
-  std::map<std::string, double> LOCAL_SCOPE;
-  std::map<std::string, double> TEMP_SCOPE;
-  std::vector<std::string> GLOBAL_VARS;
-  std::vector<std::string> LOCAL_VARS;
-  std::vector<std::string> TEMP_VARS;
-  std::vector<std::string> GLOBAL_TENSORS;
-  std::vector<std::string> LOCAL_TENSORS;
-  std::vector<std::string> TEMP_TENSORS;
-  std::vector<std::string> GLOBAL_FUNCS;
-  std::vector<std::string> LOCAL_FUNCS;
-  std::vector<std::string> TEMP_FUNCS;
-  std::vector<std::string> GLOBAL_OBJS;
-  std::vector<std::string> LOCAL_OBJS;
+// // Token
+// class Token {
+// private:
+// public:
+// 	std::string value;
+// 	TokenType type;
+// 	std::string text;
+// 	int pos;
+// 	char current_char;
+// 	Token() : value(""), type(TokenType::UNDEFINED) {}
+// 	Token(const std::string& value, const TokenType& type) : value(value), \
+// 																													 type(type) {}
+// 	Token(const TokenType& type, const std::string& value) : value(value), \
+// 																													 type(type) {}
+// 	std::string get_value() const { return value; }
+// 	TokenType get_type() const { return type; }
+// 	void set_value(const char& value) { this->value = std::string(1, value); }
+// 	void set_value(const std::string& value) { this->value = value; }
+// 	void set_type(TokenType type) { this->type = type; }
+// };
 
-	Interpreter(Lexer lexer) : lexer(lexer),
-		current_token(lexer.get_next_token()) {}
+// class Lexer {
+// private:
+// public:
+// 	std::string text;
+// 	int pos;
+// 	char current_char;
+// 	std::string current_str;
+// 	Lexer(const std::string& text) : text(text), pos(0), current_char(text[0]),
+// 																	 current_str(std::string(1, text[0])) {}
+// 	void error() {
+// 		throw std::invalid_argument("Invalid character " + current_char);
+// 	}
+// 	void advance() {
+// 		pos++;
+// 		// Indicates end of input
+// 		current_char = (pos > (text.size() - 1)) ? '\0' : text[pos];
+// 		current_str = std::string(1, current_char);
+// 	}
+// 	void skip_whitespace() {
+// 		while (KEYWORDS_ML[current_str] != TokenType::EOF_ \
+// 					 && std::isspace(current_char)) advance();
+// 	}
+// 	int integer() {
+// 		std::string result = "";
+// 		while (KEYWORDS_ML[current_str] != TokenType::EOF_ \
+// 					 && std::isdigit(current_char)) {
+// 			result += current_char;
+// 			advance();
+// 		}
+// 		return std::stoi(result);
+// 	}
+// 	std::string variable() {
+// 		std::string result = "";
+// 		while (KEYWORDS_ML[current_str] != TokenType::EOF_ \
+// 					 && isalnum(current_char)) {
+// 			result += current_char;
+// 			advance();
+// 		}
+// 		return result;
+// 	}
 
-	void error() {throw std::invalid_argument("Invalid syntax");}
-  void translate() {
-    while (current_token.get_type() != TokenType::EOF_) {
-      if (current_token.get_type() == TokenType::VARIABLE) {
-        std::string var_name = current_token.get_value();
-        current_token = lexer.get_next_token();
-        if (current_token.get_type() != TokenType::ASSIGNMENT) error();
-        current_token = lexer.get_next_token();
-        if (current_token.get_type() != TokenType::INTEGER) error();
-        std::string value = current_token.get_value();
-        current_token = lexer.get_next_token();
-        std::cout << var_name << " = " << value << std::endl;
-      }
-    }
-  }
-};
+// 	Token get_next_token() {
+// 		// Is there a start of input?
+// 		while (KEYWORDS_ML[current_str] != TokenType::EOF_) {
+// 			if (std::isspace(current_char)) {
+// 				skip_whitespace();
+// 				continue;
+// 			} else if (std::isdigit(current_char)) {
+// 				return Token(std::to_string(integer()), TokenType::INTEGER);
+// 			} else if (std::isalpha(current_char)) {
+// 				return Token(variable(), TokenType::VARIABLE);
+// 			} else {
+// 				if (KEYWORDS_ML.find(current_str) == KEYWORDS_ML.end())
+// 					return Token(current_str, TokenType::UNDEFINED);
+// 				else {
+// 					return Token(current_str, KEYWORDS_ML[current_str]);
+// 				}
+// 			}
+// 		}
+// 		return Token();
+// 	}
+// };
+
+
+// class Interpreter {
+// private:
+// public:
+//   Lexer lexer;
+//   Token current_token;
+//   std::map<std::string, double> GLOBAL_SCOPE;
+//   std::map<std::string, double> LOCAL_SCOPE;
+//   std::map<std::string, double> TEMP_SCOPE;
+//   std::vector<std::string> GLOBAL_VARS;
+//   std::vector<std::string> LOCAL_VARS;
+//   std::vector<std::string> TEMP_VARS;
+//   std::vector<std::string> GLOBAL_TENSORS;
+//   std::vector<std::string> LOCAL_TENSORS;
+//   std::vector<std::string> TEMP_TENSORS;
+//   std::vector<std::string> GLOBAL_FUNCS;
+//   std::vector<std::string> LOCAL_FUNCS;
+//   std::vector<std::string> TEMP_FUNCS;
+//   std::vector<std::string> GLOBAL_OBJS;
+//   std::vector<std::string> LOCAL_OBJS;
+
+// 	Interpreter(Lexer lexer) : lexer(lexer),
+// 		current_token(lexer.get_next_token()) {}
+
+// 	void error() {throw std::invalid_argument("Invalid syntax");}
+//   void translate() {
+//     while (current_token.get_type() != TokenType::EOF_) {
+//       if (current_token.get_type() == TokenType::VARIABLE) {
+//         std::string var_name = current_token.get_value();
+//         current_token = lexer.get_next_token();
+//         if (current_token.get_type() != TokenType::ASSIGNMENT) error();
+//         current_token = lexer.get_next_token();
+//         if (current_token.get_type() != TokenType::INTEGER) error();
+//         std::string value = current_token.get_value();
+//         current_token = lexer.get_next_token();
+//         std::cout << var_name << " = " << value << std::endl;
+//       }
+//     }
+//   }
+// };
 
 
 /*
