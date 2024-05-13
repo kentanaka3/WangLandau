@@ -10,7 +10,7 @@ from Reinforcement import *
 init()
 
 MULTILAYER_PERCEPTRON_STR = "MultiLayerPerceptron"
-FREEFOWARD_STR            = "FreeForward"
+FEEDFOWARD_STR            = "FeedForward"
 RECURRENT_STR             = "Recurrent"
 CONVOLUTIONAL_STR         = "Convolutional"
 TRANSFORMER_STR           = "Transformer"
@@ -92,13 +92,13 @@ def modelTrain(args, Model, TrainLoader, TestLoader):
 
 NETWORK = {
   MULTILAYER_PERCEPTRON_STR                   : MultiLayerPerceptron,
-  FREEFOWARD_STR                              : FreeForward,
+  FEEDFOWARD_STR                              : FreeForward,
   RECURRENT_STR                               : Recurrent,
   CONVOLUTIONAL_STR                           : Convolutional,
   TRANSFORMER_STR                             : Transformer,
   AUTOENCODER_STR                             : AutoEncoder,
   AUTOENCODER_STR + MULTILAYER_PERCEPTRON_STR : AutoEncoder,
-  AUTOENCODER_STR + FREEFOWARD_STR            : AutoEncoderFreeForward,
+  AUTOENCODER_STR + FEEDFOWARD_STR            : AutoEncoderFreeForward,
   AUTOENCODER_STR + CONVOLUTIONAL_STR         : AutoEncoderConvolutional,
   AUTOENCODER_STR + RECURRENT_STR             : AutoEncoderRecurrent,
   AUTOENCODER_STR + TRANSFORMER_STR           : AutoEncoderTransformer

@@ -36,9 +36,9 @@ class MultiLayerPerceptron(torch.nn.Module):
       XS += [self.activation(layer(XS[-1]))]
     return XS, XS[-1]
 
-class FreeForward(torch.nn.Module):
+class FeedForward(torch.nn.Module):
   def __init__(self, args):
-    super(FreeForward, self).__init__()
+    super(FeedForward, self).__init__()
     self.layers = []
     self.activation = ACT_FUNC[args.activation]
     self.criterion = LOSS[args.loss]
