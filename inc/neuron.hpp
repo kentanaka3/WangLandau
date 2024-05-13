@@ -196,13 +196,18 @@ const unsigned short MAX_LAYERS = 100;
 /******************************************************************************
  *
  *                                BRAIN CLASS
- * TODO: This can be improved to be learned by 2 MPI processors working in
+ * TODO: This can be improved to be learned by N MPI processors working in
  *       parallel, see the following snippet:
+ *
  *       L04 - In_0 ----------------- MPI_0 }
  *       L03 - In_1 ----------- MPI_1       } }
- *       L02 - In_2 ----------- MPI_1       } } } MPI_GSIZE = 3
+ *       L02 - In_2 ----------- MPI_1       } } } MPI_GSIZE = 3 = N
  *       L01 - In_3 ------MPI_2             } }
  *       L00 - In_4 ----------------- MPI_0 }
+ *
+ *       Each MPI processor will be responsible for a chunk of the layers and
+ *       will communicate with the next processor to send the output of the
+ *       last layer and receive the input of the first layer.
  *
  *****************************************************************************/
 class Brain {
