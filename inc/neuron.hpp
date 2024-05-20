@@ -8,10 +8,10 @@
 int MPI_LSIZE, MPI_LRANK, offset, chunksize;
 #endif
 
-const std::complex<double> INIT_STATE_CMPLX = 1.;
-const bool INIT_STATE_ISING = true;
-const size_t INIT_STATE_POTTS = 0;
-const double INIT_STATE_SIGMA = 1.;
+const std::complex<double> INIT_STATE_CMPLX = 0.;
+const bool INIT_STATE_ISING = false;
+const size_t INIT_STATE_CLOCK = 0;
+const double INIT_STATE_ROTATOR = 0.;
 const std::ostringstream DATA_PATH{"data/"};
 const unsigned int MARKOVIANITY = 1;
 int MPI_GSIZE = 1;
@@ -24,6 +24,120 @@ std::uniform_real_distribution<> unf_dist(-1., 1.);
 /*****************************************************************************
  *
  *                                NEURON CLASS
+ *
+ * * Model (Value): Name (Range) (Default) [Author]
+ * - Ising (binary): Perceptron (False, True) (False) [Rosenblatt, 1957;
+ *                                                     Lapicque, 1907]
+ * - Clock (natural): Multistate (0, 1, 2, ..., N) (0) [Hodgkin & Huxley, 1952]
+ * - Rotator (real): Sigmoid (-∞, ∞) (0) [McCulloch & Pitts, 1943;
+ *                                        Minsky, 1969; Izhikevich, 2003;
+ *                                        Rumelhart, 1986; Hinton, 2012;
+ *                                        LeCun, 2015; Goodfellow, 2016;
+ *                                        Bengio, 2017; Schmidhuber, 2015]
+ * - Quantum (complex): - (a + bi) (0) [Feynman, 1982]
+ *
+ * * Activation Function Name: f(x) [Author]
+ * - Step: f(x) = 1 ? x > 0 : 0 [0, 1] [McCulloch & Pitts, 1943]
+ * - Sigmoid: f(x) = 1 / (1 + exp(-x)) [-1, 1] [Rumelhart, 1986; Hinton, 2012;
+ *                                              LeCun, 2015; Schmidhuber, 2015;
+ *                                              Goodfellow, 2016; Bengio, 2017]
+ * - ReLU: f(x) = max(0, x) (0, ∞) [Nair & Hinton, 2010]
+ * - Tanh: f(x) = (exp(x) - exp(-x)) / (exp(x) + exp(-x)) (-1, 1) [LeCun, 2015]
+ * - Softmax: f(x) = exp(x) / ∑(exp(x)) (0, 1) [Bridle, 1990]
+ * - Linear: f(x) = x (-∞, ∞) [Rosenblatt, 1957; Lapicque, 1907]
+ * - Gaussian: f(x) = exp(-x^2) (0, 1) [Rumelhart, 1986; Hinton, 2012;
+ *                                      LeCun, 2015; Goodfellow, 2016;
+ *                                      Bengio, 2017; Schmidhuber, 2015]
+ * - Softplus: f(x) = log(1 + exp(x)) (0, ∞) [Dugas, 2001]
+ * - Softsign: f(x) = x / (1 + |x|) (-1, 1) [Glorot, 2011]
+ * - Bent Identity: f(x) = (√(x^2 + 1) - 1) / 2 + x (0, ∞) [Nair, 2010]
+ * - Sinusoid: f(x) = sin(x) (-1, 1) [Hahnloser, 2000]
+ * - Sinc: f(x) = sin(x) / x (-1, 1) [Hahnloser, 2000]
+ * - Soft Exponential: f(x) = ln(1 + exp(x)) ? ⲁ > 0 : -ln(1 - exp(-x)) (-∞, ∞)
+ *                  [Hinton, 2012; LeCun, 2015; Goodfellow, 2016; Bengio, 2017;
+ *                   Schmidhuber, 2015]
+ * - Soft Clipping: f(x) = ln(1 + exp(ⲁ * x)) / ⲁ (-1, 1) [Goodfellow, 2016]
+ * - Swish: f(x) = x / (1 + exp(-ⲃ * x)) (-∞, ∞) [Ramachandran, 2017]
+ * - Mish: f(x) = x * tanh(ln(1 + exp(x))) (-∞, ∞) [Misra, 2019]
+ *
+ * Learning Rate Name: (ⲁ) (Range) (Default) [Author]
+ * - Constant: ⲁ = 0.1 (0, 1) (0.1) [Rosenblatt, 1957; Lapicque, 1907]
+ * - Adaptive: ⲁ = 1 / (1 + t) (0, 1) (0) [Rumelhart, 1986; Hinton, 2012;
+ *                                         LeCun, 2015; Goodfellow, 2016;
+ *                                         Bengio, 2017; Schmidhuber, 2015]
+ * - Momentum: ⲁ = ⲃ * ⲁ + (1 - ⲃ) * dL/dw (-1, 1) (0) [Polyak, 1964]
+ * - Nesterov: ⲁ = ⲃ * ⲁ + (1 - ⲃ) * dL/dw (-1, 1) (0) [Nesterov, 1983]
+ * - Adagrad: ⲁ = ⲁ + dL/dw^2 (-1, 1) (0) [Duchi, 2011]
+ * - RMSprop: ⲁ = ⲃ * ⲁ + (1 - ⲃ) * dL/dw^2 (-1, 1) (0) [Hinton, 2012]
+ * - Adam: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2) (-1, 1) (0)
+ *                                                               [Kingma, 2014]
+ * - Nadam: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2) (-1, 1) (0)
+ *                                                                [Dozat, 2016]
+ * - Adadelta: ⲁ = ⲃ * ⲁ + (1 - ⲃ) * dL/dw^2 / dL/dw (-1, 1) (0) [Zeiler, 2012]
+ * - AMSGrad: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (max(ⲃ_2 * dL/dw^2, ⲁ)) (-1, 1) (0) [Reddi, 2018]
+ * - RAdam: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0)
+ *                                                                  [Liu, 2019]
+ * - Lookahead: ⲁ = ⲃ * ⲁ + (1 - ⲃ) * dL/dw (-1, 1) (0) [Zhang, 2019]
+ * - Ranger: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0)
+ *                                                               [Wright, 2019]
+ * - RangerLars: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0) [Wright, 2019]
+ * - Ralamb: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0) [Wright, 2019]
+ * - Over9000: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (max(ⲃ_2 * dL/dw^2, ⲁ)) (-1, 1) (0) [Luo, 2019]
+ * - LAMB: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0) [You, 2019]
+ * - NovoGrad: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0) [Ginsburg, 2019]
+ * - QHAdam: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0) [Ma, 2019]
+ * - QHMomentum: ⲁ = ⲃ * ⲁ + (1 - ⲃ) * dL/dw (-1, 1) (0) [Ma, 2019]
+ * - QHAdamW: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0) [Ma, 2019]
+ * - QHMomentumW: ⲁ = ⲃ * ⲁ + (1 - ⲃ) * dL/dw (-1, 1) (0) [Ma, 2019]
+ * - QHAdamax: ⲁ = ⲃ_1 * ⲁ + (1 - ⲃ_1) * dL/dw / (ⲃ_2 * dL/dw^2 + ⲉ) (-1, 1) (0) [Ma, 2019]
+ *
+ * Loss Function (L): Name (Range) [Author]
+ * - Mean Squared Error: L = (1 / N) * ∑((Y - Y_pred)^2) (0, ∞) [Rumelhart, 1986]
+ * - Mean Absolute Error: L = (1 / N) * ∑(|Y - Y_pred|) (0, ∞) [Rumelhart, 1986]
+ * - Cross Entropy: L = -∑(Y * log(Y_pred)) (0, ∞) [Rumelhart, 1986]
+ * - Hinge: L = max(0, 1 - Y * Y_pred) (0, ∞) [Rumelhart, 1986]
+ * - Huber: L = (1 / N) * ∑(0.5 * (Y - Y_pred)^2 ? |Y - Y_pred| < ⲇ : ⲇ * |Y - Y_pred| - 0.5 * ⲇ^2) (0, ∞) [Rumelhart, 1986]
+ * - Log Cosh: L = (1 / N) * ∑(log(cosh(Y - Y_pred))) (0, ∞) [Rumelhart, 1986]
+ * - Quantile: L = (1 - ⲧ) * ∑(max(0, Y - Y_pred)) + ⲧ * ∑(max(0, Y_pred - Y)) (0, ∞) [Rumelhart, 1986]
+ * - Triplet: L = max(0, Y - Y_pred + margin) + max(0, Y_pred - Y + margin) (0, ∞) [Rumelhart, 1986]
+ * - Wasserstein: L = ∑(|Y - Y_pred|) (0, ∞) [Rumelhart, 1986]
+ * - Wasserstein GAN: L = ∑(Y * Y_pred) (0, ∞) [Rumelhart, 1986]
+ * - Wasserstein GAN GP: L = ∑(Y * Y_pred) + ⲗ * ∑((∇(Y_pred) - 1)^2) (0, ∞) [Rumelhart, 1986]
+ * - Wasserstein GAN LP: L = ∑(Y * Y_pred) + ⲗ * ∑((∇(Y) - 1)^2) (0, ∞) [Rumelhart, 1986]
+ *
+ * Regularization (R): Name (Range) [Author]
+ * - L1: R = ∑(|w|) (0, ∞) [Rumelhart, 1986]
+ * - L2: R = ∑(w^2) (0, ∞) [Rumelhart, 1986]
+ * - L1L2: R = ∑(|w|) + ∑(w^2) (0, ∞) [Rumelhart, 1986]
+ * - Elastic Net: R = (1 - ⲁ) * ∑(|w|) + ⲁ * ∑(w^2) (0, ∞) [Rumelhart, 1986]
+ * - Group Lasso: R = ∑(√(∑(w^2))) (0, ∞) [Rumelhart, 1986]
+ * - Sparse Group Lasso: R = ∑(√(∑(w^2))) + ∑(|w|) (0, ∞) [Rumelhart, 1986]
+ * - Fused Lasso: R = ∑(|w_i - w_j|) (0, ∞) [Rumelhart, 1986]
+ * - Total Variation: R = ∑(√((w_i - w_j)^2)) (0, ∞) [Rumelhart, 1986]
+ * - Nuclear Norm: R = ∑(svd(w)) (0, ∞) [Rumelhart, 1986]
+ * - Group Lasso: R = ∑(√(∑(w^2))) (0, ∞) [Rumelhart, 1986]
+ *
+ * Initialization (I): Name (Range) [Author]
+ * - Constant: I = 0 (0, 1) [Rumelhart, 1986]
+ * - Normal: I = N(0, 1) (-∞, ∞) [Rumelhart, 1986]
+ * - Uniform: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Glorot: I = U(-√(6 / (n_in + n_out)), √(6 / (n_in + n_out))) (-1, 1) [Rumelhart, 1986]
+ * - He: I = U(-√(6 / n_in), √(6 / n_in)) (-1, 1) [Rumelhart, 1986]
+ * - LeCun: I = U(-√(3 / n_in), √(3 / n_in)) (-1, 1) [Rumelhart, 1986]
+ * - Orthogonal: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Sparse: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Identity: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Eye: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Random: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Random Normal: I = N(0, 1) (-∞, ∞) [Rumelhart, 1986]
+ * - Random Uniform: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Random Glorot: I = U(-√(6 / (n_in + n_out)), √(6 / (n_in + n_out))) (-1, 1) [Rumelhart, 1986]
+ * - Random He: I = U(-√(6 / n_in), √(6 / n_in)) (-1, 1) [Rumelhart, 1986]
+ * - Random LeCun: I = U(-√(3 / n_in), √(3 / n_in)) (-1, 1) [Rumelhart, 1986]
+ * - Random Orthogonal: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Random Sparse: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Random Identity: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
+ * - Random Eye: I = U(-1, 1) (-1, 1) [Rumelhart, 1986]
  *
  *****************************************************************************/
 class neuron {
@@ -49,8 +163,8 @@ public:
 
 // Definitions for neuron class methods
 neuron::neuron(const std::string& file) : State(true), train(true), \
-  Value(INIT_STATE_SIGMA), \
-  Past(std::vector<double>(MARKOVIANITY, INIT_STATE_SIGMA)) {
+  Value(INIT_STATE_ROTATOR), \
+  Past(std::vector<double>(MARKOVIANITY, INIT_STATE_ROTATOR)) {
   #if DEBUG >= 3
   if (MPI_GRANK == 0)
     std::cout << "DEBUG(3): Creating Neuron @ " << file << std::endl;

@@ -922,7 +922,7 @@ size_t argMax(const std::vector<double> vec, const size_t& N) {
 // 	{TokenType::EQUAL, "="}, 		// Equal
 // 	{TokenType::DOT, "."},			// Dot
 // 	{TokenType::ELSE, "¿"},			// Else
-// 	{TokenType::END, "\n"},		// End of line
+// 	{TokenType::END, "\n"},		  // End of line
 // 	{TokenType::EOF_, "\0"},		// End of file
 // 	{TokenType::GREATER, ">"},	// Greater than
 // 	{TokenType::IF, "?"},				// If
@@ -930,7 +930,6 @@ size_t argMax(const std::vector<double> vec, const size_t& N) {
 // 	{TokenType::LESS, "<"},			// Less than
 // 	{TokenType::MINUS, "-"},		// Minus
 // 	{TokenType::NOT, "¬"},			// Logical not
-// 	//{TokenType::OPERATOR, ""}, 
 // 	{TokenType::OR, "∨"}, 			// Logical or
 // 	{TokenType::PLUS, "+"}, 		// Plus
 // 	{TokenType::RIGHT_PAREN, ")"},
